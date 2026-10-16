@@ -1,0 +1,63 @@
+# Plantilla: el entrypoint de la imagen sustituye ${BACKEND_URL}.
+# Detrás de Cloudflare/otro proxy TLS se respeta X-Forwarded-Proto; si no viene, se usa el esquema local.
+map $http_x_forwarded_proto $fwd_proto {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    # IP real del cliente cuando hay Cloudflare delante (restringir set_real_ip_from a los rangos de Cloudflare en producción).
+    # real_ip_header CF-Connecting-IP;
+    # set_real_ip_from 173.245.48.0/20;   # ver https://www.cloudflare.com/ips/
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # Nota: add_header en un location reemplaza los del server; por eso cada location incluye el snippet.
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # API: mismo origen que la SPA, de modo que la cookie de refresco HttpOnly funciona sin CORS.
+    location ^~ /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $fwd_proto;
+        proxy_read_timeout 120s;
+        client_max_body_size 1m;
+    }
+
+    # config.js y index.html nunca se cachean; los bundles llevan hash y se cachean un año.
+    location = /config.js {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+    }
+    location = /index.html {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+    }
+    location ~* \.(?:js|css|woff2?|ico|svg|png)$ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        try_files $uri $uri/ /index.html;
+    }
+}
