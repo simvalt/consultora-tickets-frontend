@@ -142,3 +142,34 @@ test('la exportación CSV descarga los registros filtrados', async ({ page }) =>
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export').click()]);
   expect(download.suggestedFilename()).toMatch(/^tickets-\d{8}-\d{6}\.csv$/);
 });
+
+test('permisos propios de un usuario: se editan como JSON y se aplican sobre su rol', async ({ page, context }) => {
+  const CAPTURISTA = 'capturista@consultora.local';
+  const edit = async (json: string) => {
+    await page.goto('/users');
+    await page.getByTestId('search-users').fill(CAPTURISTA);
+    const row = page.getByRole('row').filter({ hasText: CAPTURISTA });
+    await row.getByRole('button', { name: 'Editar usuario' }).click();
+    await page.getByTestId('perm-json-tab').click();
+    await page.getByTestId('perm-json').fill(json);
+    await saveDialog(page, 'user-save');
+  };
+
+  await login(page, ADMIN);
+  await edit('{"Ticket": "editar", "Analítica": "ver"}');
+
+  // El usuario ahora ve el Dashboard (su rol Capturista no lo tenía) y puede editar tickets.
+  await context.clearCookies();
+  await login(page, { email: CAPTURISTA, password: READER.password });
+  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+
+  // Restaurar: quitar los overrides ({}) para dejar los datos demo como estaban.
+  await context.clearCookies();
+  await login(page, ADMIN);
+  await edit('{}');
+  await page.goto('/users');
+  await page.getByTestId('search-users').fill(CAPTURISTA);
+  await page.getByRole('row').filter({ hasText: CAPTURISTA }).getByRole('button', { name: 'Editar usuario' }).click();
+  await page.getByTestId('perm-json-tab').click();
+  await expect(page.getByTestId('perm-json')).toHaveValue('{}');
+});

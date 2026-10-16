@@ -2,7 +2,6 @@ import { Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,10 +14,12 @@ import { debounceTime } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth.service';
 import { CanDirective } from '../../core/can.directive';
-import { LEVEL_HINTS, LEVEL_LABELS, MODULES, ModuleKey, Page, Permissions, Role } from '../../core/models';
+import { LEVEL_LABELS, MODULES, Page, Role } from '../../core/models';
+import { PermMap } from '../../core/permissions-json';
 import { Notify } from '../../core/notify.service';
 import { PagedList } from '../../core/paged-list';
 import { confirm } from '../../shared/confirm-dialog';
+import { PermissionsEditor } from '../../shared/permissions-editor';
 import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
 
 @Component({
@@ -29,7 +30,7 @@ import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    MatButtonToggleModule,
+    PermissionsEditor,
   ],
   template: `
     <h2 mat-dialog-title>{{ data ? 'Editar rol' : 'Nuevo rol' }}</h2>
@@ -51,30 +52,7 @@ import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
         </mat-form-field>
 
         <h3 class="matrix-title">Permisos por módulo</h3>
-        <p class="muted matrix-help">
-          Los niveles son acumulativos: cada nivel incluye los anteriores. Sólo puedes otorgar niveles que tú mismo
-          tienes.
-        </p>
-        <div class="matrix" role="group" aria-label="Matriz de permisos">
-          @for (m of modules; track m.key) {
-            <div class="matrix-row">
-              <div class="matrix-module">
-                <strong>{{ m.label }}</strong>
-                <small class="muted">{{ hint(m.key) }}</small>
-              </div>
-              <mat-button-toggle-group
-                [value]="perms()[m.key]"
-                (change)="setLevel(m.key, $event.value)"
-                [attr.aria-label]="'Nivel de ' + m.label"
-                [attr.data-testid]="'perm-' + m.key"
-              >
-                @for (l of levels; track l) {
-                  <mat-button-toggle [value]="l" [disabled]="l > maxLevel(m.key)">{{ labels[l] }}</mat-button-toggle>
-                }
-              </mat-button-toggle-group>
-            </div>
-          }
-        </div>
+        <app-permissions-editor [(value)]="perms" mode="role" />
       </mat-dialog-content>
       <mat-dialog-actions align="end">
         <button mat-button type="button" mat-dialog-close>Cancelar</button>
@@ -117,28 +95,15 @@ export class RoleDialog {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
 
-  readonly modules = MODULES;
-  readonly levels = [0, 1, 2, 3, 4];
-  readonly labels = LEVEL_LABELS;
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
-  readonly perms = signal<Permissions>(
+  readonly perms = signal<PermMap>(
     this.data?.permissions ?? { tickets: 0, users: 0, roles: 0, clients: 0, dashboard: 0 },
   );
   readonly form = this.fb.nonNullable.group({
     name: [this.data?.name ?? '', [Validators.required, Validators.maxLength(80)]],
     description: [this.data?.description ?? ''],
   });
-
-  maxLevel(module: ModuleKey): number {
-    return this.auth.user()?.permissions[module] ?? 0;
-  }
-  hint(module: ModuleKey): string {
-    return LEVEL_HINTS[this.perms()[module]];
-  }
-  setLevel(module: ModuleKey, level: number): void {
-    this.perms.update((p) => ({ ...p, [module]: level }));
-  }
 
   save(): void {
     if (this.form.invalid) {

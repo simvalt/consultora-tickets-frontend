@@ -18,7 +18,7 @@ Necesita el backend en `:8000` (ver guía principal). Credenciales **locales** d
 ## Pruebas, lint y compilación
 
 ```bash
-npm test             # Vitest (ng test): 26 pruebas — auth/interceptor (renovación de token), guards, permisos,
+npm test             # Vitest (ng test): 34 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
                      #   PagedList, utilidades y el flujo principal por componentes (login → crear → asignar → estatus → cerrar)
 npm run lint         # angular-eslint
 npm run build        # compilación de producción en dist/ (presupuesto inicial < 1 MB)
@@ -57,7 +57,7 @@ Decisiones: rutas con *lazy loading*; el **access token vive sólo en memoria** 
 
 ## Permisos en la interfaz
 
-Los niveles son acumulativos (Leer < Insertar < Editar < Eliminar). Sin lectura del módulo no aparece en el menú ni se puede abrir (→ «Acceso denegado»). «Nuevo» requiere Insertar; editar, **cambiar estatus, asignar y comentar** requieren Editar; eliminar/desactivar requiere Eliminar. La matriz de roles sólo permite otorgar niveles que el usuario ya tiene.
+Los niveles son acumulativos (Leer < Insertar < Editar < Eliminar). Cada usuario puede tener además permisos propios por módulo que sustituyen a los de su rol (editor Matriz/JSON en el diálogo de usuario). Sin lectura del módulo no aparece en el menú ni se puede abrir (→ «Acceso denegado»). «Nuevo» requiere Insertar; editar, **cambiar estatus, asignar y comentar** requieren Editar; eliminar/desactivar requiere Eliminar. La matriz de roles sólo permite otorgar niveles que el usuario ya tiene.
 
 ## Limitaciones conocidas
 

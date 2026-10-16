@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,16 +15,26 @@ import { debounceTime } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth.service';
 import { CanDirective } from '../../core/can.directive';
-import { Lookups } from '../../core/lookups.service';
+import { Lookups, RoleLookup } from '../../core/lookups.service';
 import { LookupItem, Page, User } from '../../core/models';
 import { Notify } from '../../core/notify.service';
 import { PagedList } from '../../core/paged-list';
 import { confirm } from '../../shared/confirm-dialog';
+import { PermMap } from '../../core/permissions-json';
+import { PermissionsEditor } from '../../shared/permissions-editor';
 import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
 
 @Component({
   selector: 'app-user-dialog',
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    PermissionsEditor,
+  ],
   template: `
     <h2 mat-dialog-title>{{ data ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
@@ -76,12 +86,31 @@ import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
             }
           </mat-form-field>
         </div>
+        <h3 class="perm-title">Permisos propios del usuario</h3>
+        <p class="muted perm-help">
+          Además de su rol, puedes sobrescribir el nivel de módulos concretos. Lo que no se defina se hereda del rol.
+        </p>
+        @if (isSelf) {
+          <p class="banner info">No puedes cambiar tus propios permisos.</p>
+        } @else {
+          <app-permissions-editor [(value)]="overrides" mode="user" [inherited]="inheritedPerms()" />
+        }
       </mat-dialog-content>
       <mat-dialog-actions align="end">
         <button mat-button type="button" mat-dialog-close>Cancelar</button>
         <button mat-flat-button type="submit" [disabled]="saving()" data-testid="user-save">Guardar</button>
       </mat-dialog-actions>
     </form>
+  `,
+  styles: `
+    .perm-title {
+      margin: 12px 0 0;
+      font-size: 1rem;
+    }
+    .perm-help {
+      margin: 2px 0 8px;
+      font-size: 0.85rem;
+    }
   `,
 })
 export class UserDialog {
@@ -90,10 +119,13 @@ export class UserDialog {
   private readonly api = inject(Api);
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
-  readonly roles = signal<LookupItem[]>([]);
+  readonly roles = signal<RoleLookup[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly isSelf = this.data?.id === this.auth.user()?.id;
+  readonly overrides = signal<PermMap>(this.data?.permission_overrides ?? {});
+  private readonly roleId = signal<number | null>(this.data?.role_id ?? null);
+  readonly inheritedPerms = computed(() => this.roles().find((r) => r.id === this.roleId())?.permissions ?? {});
   readonly form = this.fb.nonNullable.group({
     full_name: [this.data?.full_name ?? '', [Validators.required, Validators.maxLength(150)]],
     email: [this.data?.email ?? '', [Validators.required, Validators.email]],
@@ -106,6 +138,7 @@ export class UserDialog {
       .roles()
       .subscribe((r) => this.roles.set(r));
     if (this.isSelf) this.form.controls.role_id.disable();
+    this.form.controls.role_id.valueChanges.subscribe((id) => this.roleId.set(id));
   }
 
   save(): void {
@@ -117,6 +150,7 @@ export class UserDialog {
     this.error.set(null);
     const v = this.form.getRawValue();
     const body: Record<string, unknown> = { full_name: v.full_name, email: v.email, role_id: v.role_id };
+    if (!this.isSelf) body['permission_overrides'] = this.overrides();
     if (v.password) body['password'] = v.password;
     const req = this.data ? this.api.patch<User>(`/users/${this.data.id}`, body) : this.api.post<User>('/users', body);
     req.subscribe({
@@ -163,7 +197,7 @@ export class UserDialog {
     <form class="filters" [formGroup]="filters">
       <mat-form-field appearance="outline" class="grow">
         <mat-label>Buscar</mat-label>
-        <input matInput formControlName="q" placeholder="Nombre o correo" />
+        <input matInput formControlName="q" placeholder="Nombre o correo" data-testid="search-users" />
         <mat-icon matSuffix>search</mat-icon>
       </mat-form-field>
       <mat-form-field appearance="outline">

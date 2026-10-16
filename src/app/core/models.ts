@@ -83,6 +83,10 @@ export interface User {
   full_name: string;
   role_id: number;
   role_name: string;
+  /** Permisos efectivos (rol + overrides). */
+  permissions: Permissions;
+  /** Sólo los niveles propios del usuario (sobrescriben al rol por módulo). */
+  permission_overrides: Partial<Permissions>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
