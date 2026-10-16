@@ -6,7 +6,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
-import { errorCode, errorMessage } from '../../core/api';
+import { errorMessage } from '../../core/api';
+import { safeReturnUrl } from '../../core/safe-url';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
@@ -101,17 +102,11 @@ export class Login {
     this.auth.login(email.trim(), password).subscribe({
       next: () => {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
-        void this.router.navigateByUrl(returnUrl && returnUrl.startsWith('/') ? returnUrl : '/');
+        void this.router.navigateByUrl(safeReturnUrl(returnUrl));
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(
-          errorCode(err) === 'invalid_credentials' ||
-            errorCode(err) === 'user_inactive' ||
-            errorCode(err) === 'too_many_attempts'
-            ? errorMessage(err)
-            : errorMessage(err, 'No se pudo iniciar sesión.'),
-        );
+        this.error.set(errorMessage(err, 'No se pudo iniciar sesión.'));
       },
     });
   }

@@ -1,5 +1,5 @@
 # --- Compilación ---
-FROM node:22-alpine AS build
+FROM node:22.23.2-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
@@ -7,7 +7,7 @@ COPY . .
 RUN npx ng build --configuration production
 
 # --- Servidor estático + proxy /api (nginx sin privilegios, puerto 8080) ---
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.30.6-alpine
 # BACKEND_URL: dónde está la API para el proxy /api. API_URL: prefijo que usa el navegador (config.js).
 ENV BACKEND_URL=http://backend:8000 \
     API_URL=/api

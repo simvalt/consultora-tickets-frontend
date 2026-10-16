@@ -71,20 +71,24 @@ import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
               <mat-hint>No puedes cambiar tu propio rol</mat-hint>
             }
           </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ data ? 'Nueva contraseña (opcional)' : 'Contraseña' }}</mat-label>
-            <input
-              matInput
-              type="password"
-              formControlName="password"
-              autocomplete="new-password"
-              data-testid="user-password"
-            />
-            <mat-hint>Mínimo 10 caracteres</mat-hint>
-            @if (form.controls.password.touched && form.controls.password.invalid) {
-              <mat-error>Mínimo 10 caracteres</mat-error>
-            }
-          </mat-form-field>
+          @if (isSelf) {
+            <p class="muted span2">Tu contraseña se cambia desde el menú de usuario → «Cambiar contraseña».</p>
+          } @else {
+            <mat-form-field appearance="outline">
+              <mat-label>{{ data ? 'Nueva contraseña (opcional)' : 'Contraseña' }}</mat-label>
+              <input
+                matInput
+                type="password"
+                formControlName="password"
+                autocomplete="new-password"
+                data-testid="user-password"
+              />
+              <mat-hint>Mínimo 10 caracteres</mat-hint>
+              @if (form.controls.password.touched && form.controls.password.invalid) {
+                <mat-error>Mínimo 10 caracteres</mat-error>
+              }
+            </mat-form-field>
+          }
         </div>
         <h3 class="perm-title">Permisos propios del usuario</h3>
         <p class="muted perm-help">

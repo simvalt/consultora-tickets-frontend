@@ -52,6 +52,16 @@ export class AuthService {
     );
   }
 
+  /** Cambia la propia contraseña; el servidor devuelve una sesión nueva y cierra las demás. */
+  changePassword(currentPassword: string, newPassword: string): Observable<Me> {
+    return this.http
+      .post<TokenResponse>(`${this.base}/auth/change-password`, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
+      .pipe(map((r) => this.applySession(r)));
+  }
+
   logout(): Observable<void> {
     return this.http.post<void>(`${this.base}/auth/logout`, {}).pipe(
       catchError(() => of(undefined)),

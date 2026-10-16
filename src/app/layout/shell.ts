@@ -2,6 +2,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatMenuModule } from '@angular/material/menu';
@@ -10,6 +11,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthService } from '../core/auth.service';
+import { Notify } from '../core/notify.service';
+import { ChangePasswordDialog } from './change-password-dialog';
 import { Level, ModuleKey } from '../core/models';
 
 interface NavItem {
@@ -79,6 +82,10 @@ const NAV: NavItem[] = [
               <small>{{ auth.user()?.email }}</small>
               <small>Rol: {{ auth.user()?.role_name }}</small>
             </div>
+            <button mat-menu-item (click)="changePassword()" data-testid="change-password">
+              <mat-icon>key</mat-icon>
+              <span>Cambiar contraseña</span>
+            </button>
             <button mat-menu-item (click)="logout()" data-testid="logout">
               <mat-icon>logout</mat-icon>
               <span>Cerrar sesión</span>
@@ -95,6 +102,8 @@ const NAV: NavItem[] = [
 export class Shell {
   readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
+  private readonly notify = inject(Notify);
   readonly menuOpen = signal(false);
   readonly isMobile = toSignal(
     inject(BreakpointObserver)
@@ -103,6 +112,13 @@ export class Shell {
     { initialValue: false },
   );
   readonly items = computed(() => NAV.filter((n) => this.auth.can(n.module, Level.Read)));
+
+  changePassword(): void {
+    this.dialog
+      .open(ChangePasswordDialog, { width: '440px', maxWidth: '95vw' })
+      .afterClosed()
+      .subscribe((ok) => ok && this.notify.success('Contraseña actualizada. Se cerraron tus otras sesiones.'));
+  }
 
   logout(): void {
     this.auth.logout().subscribe(() => void this.router.navigate(['/login']));

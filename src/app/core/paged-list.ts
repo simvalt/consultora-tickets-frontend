@@ -24,8 +24,8 @@ export class PagedList<T> {
 
   constructor(
     private readonly fetcher: (params: Params) => Observable<Page<T>>,
-    defaultSort: string,
-    defaultOrder: 'asc' | 'desc' = 'asc',
+    private readonly defaultSort: string,
+    private readonly defaultOrder: 'asc' | 'desc' = 'asc',
   ) {
     this.sort.set(defaultSort);
     this.order.set(defaultOrder);
@@ -43,12 +43,9 @@ export class PagedList<T> {
   }
 
   setSort(sort: string, order: 'asc' | 'desc' | ''): void {
-    if (!order) {
-      this.order.set('asc');
-    } else {
-      this.sort.set(sort);
-      this.order.set(order);
-    }
+    // Sin dirección (tercer clic en la cabecera) se vuelve al orden por defecto del listado.
+    this.sort.set(order ? sort : this.defaultSort);
+    this.order.set(order || this.defaultOrder);
     this.page.set(1);
     this.load();
   }

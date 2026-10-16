@@ -18,14 +18,14 @@ Necesita el backend en `:8000` (ver guía principal). Credenciales **locales** d
 ## Pruebas, lint y compilación
 
 ```bash
-npm test             # Vitest (ng test): 34 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
+npm test             # Vitest (ng test): 46 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
                      #   PagedList, utilidades y el flujo principal por componentes (login → crear → asignar → estatus → cerrar)
 npm run lint         # angular-eslint
 npm run build        # compilación de producción en dist/ (presupuesto inicial < 1 MB)
 npm run e2e          # Playwright contra el sistema real (frontend + backend + datos demo en marcha)
 ```
 
-E2E (`e2e/main-flow.spec.ts`): login incorrecto; **login → crear ticket → asignar → iniciado → en proceso → pendiente (motivo) → cerrado (resolución) → historial y comentario**; usuario de sólo lectura sin acciones de escritura + páginas de acceso denegado/no encontrado; exportación CSV. Usa el Chrome instalado (`E2E_BROWSER_CHANNEL=chrome`, por defecto); con `E2E_BROWSER_CHANNEL=chromium` usa el navegador de `npx playwright install chromium`. `E2E_BASE_URL` (por defecto `http://localhost:4200`) y `E2E_ADMIN_*`/`E2E_READER_*` permiten apuntar a otro entorno.
+E2E (23 pruebas): `e2e/main-flow.spec.ts` y `e2e/qa.spec.ts` (sesión, redirecciones seguras, tickets, administración, dashboard y móvil). `main-flow.spec.ts` cubre: login incorrecto; **login → crear ticket → asignar → iniciado → en proceso → pendiente (motivo) → cerrado (resolución) → historial y comentario**; usuario de sólo lectura sin acciones de escritura + páginas de acceso denegado/no encontrado; exportación CSV. Usa el Chrome instalado (`E2E_BROWSER_CHANNEL=chrome`, por defecto); con `E2E_BROWSER_CHANNEL=chromium` usa el navegador de `npx playwright install chromium`. `E2E_BASE_URL` (por defecto `http://localhost:4200`) y `E2E_ADMIN_*`/`E2E_READER_*` permiten apuntar a otro entorno.
 
 ## Configuración y variables
 
@@ -54,6 +54,13 @@ src/app/
 ```
 
 Decisiones: rutas con *lazy loading*; el **access token vive sólo en memoria** y se restaura al recargar con la cookie `HttpOnly` de refresco; la interfaz **oculta** acciones con `*appCan` y bloquea rutas con `permissionGuard`, pero la autorización real está en el backend; las listas paginan/filtran/ordenan en servidor y el botón **Exportar CSV** pide al backend los mismos filtros y orden (todas las páginas); fechas en UTC en la API y mostradas en la zona horaria del navegador; textos en español (locale `es`).
+
+## Seguridad en el cliente
+
+- El access token sólo vive en memoria y nunca se guarda en `localStorage`. La sesión se restaura con la cookie `HttpOnly`.
+- `returnUrl` sólo acepta rutas internas (`safeReturnUrl`), así que no hay redirecciones abiertas.
+- «Cambiar contraseña» en el menú de usuario exige la actual. El servidor cierra las demás sesiones.
+- nginx sobrescribe `X-Forwarded-For`, sirve una CSP estricta y no duplica las cabeceras de la API.
 
 ## Permisos en la interfaz
 

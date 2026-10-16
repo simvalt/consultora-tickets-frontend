@@ -133,8 +133,8 @@ export class TicketForm implements OnInit {
   private readonly router = inject(Router);
   private readonly notify = inject(Notify);
   private readonly lookups = inject(Lookups);
-  readonly canAssign = () => this.auth.can('tickets', 3);
   private readonly auth = inject(AuthService);
+  readonly canAssign = () => this.auth.can('tickets', 3);
 
   readonly priorities = PRIORITIES;
   readonly priorityLabels = PRIORITY_LABELS;
