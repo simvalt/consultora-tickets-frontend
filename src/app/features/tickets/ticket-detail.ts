@@ -47,22 +47,41 @@ import { AssignDialog, StatusDialog } from './ticket-dialogs';
         </h1>
         <div class="actions">
           @if (t.allowed_transitions.length) {
-            <button *appCan="['tickets', 3]" mat-flat-button (click)="changeStatus()" data-testid="change-status">
+            <button
+              *appCan="['tickets', 3]"
+              mat-flat-button
+              [disabled]="loading()"
+              (click)="changeStatus()"
+              data-testid="change-status"
+            >
               <mat-icon>swap_horiz</mat-icon> Cambiar estatus
             </button>
           }
           @if (canAssign(t)) {
-            <button *appCan="['tickets', 3]" mat-stroked-button (click)="assign()" data-testid="assign">
+            <button
+              *appCan="['tickets', 3]"
+              mat-stroked-button
+              [disabled]="loading()"
+              (click)="assign()"
+              data-testid="assign"
+            >
               <mat-icon>person_add</mat-icon> {{ t.assignee_id ? 'Reasignar' : 'Asignar' }}
             </button>
           }
-          <a *appCan="['tickets', 3]" mat-stroked-button [routerLink]="['/tickets', t.id, 'edit']" data-testid="edit">
+          <a
+            *appCan="['tickets', 3]"
+            mat-stroked-button
+            [disabled]="loading()"
+            [routerLink]="['/tickets', t.id, 'edit']"
+            data-testid="edit"
+          >
             <mat-icon>edit</mat-icon> Editar
           </a>
           <button
             *appCan="['tickets', 4]"
             mat-stroked-button
             class="danger-outline"
+            [disabled]="loading()"
             (click)="remove()"
             data-testid="delete"
           >
@@ -318,11 +337,13 @@ export class TicketDetailPage implements OnInit {
   }
 
   changeStatus(): void {
+    if (this.loading()) return;
     this.dialog
       .open(StatusDialog, { data: { ticket: this.ticket() }, width: '480px', maxWidth: '95vw' })
       .afterClosed()
       .subscribe((t) => {
         if (t) {
+          this.ticket.set(t);
           this.notify.success('Estatus actualizado');
           this.load();
         }
@@ -330,11 +351,13 @@ export class TicketDetailPage implements OnInit {
   }
 
   assign(): void {
+    if (this.loading()) return;
     this.dialog
       .open(AssignDialog, { data: { ticket: this.ticket() }, width: '440px', maxWidth: '95vw' })
       .afterClosed()
       .subscribe((t) => {
         if (t) {
+          this.ticket.set(t);
           this.notify.success('Responsable actualizado');
           this.load();
         }

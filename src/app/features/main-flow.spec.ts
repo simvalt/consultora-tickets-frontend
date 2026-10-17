@@ -6,13 +6,15 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
+import { EMPTY, of } from 'rxjs';
 import { authInterceptor } from '../core/auth.interceptor';
 import { AuthService } from '../core/auth.service';
 import { Me, TicketDetail } from '../core/models';
 import { Login } from './login/login';
 import { AssignDialog, StatusDialog } from './tickets/ticket-dialogs';
+import { TicketDetailPage } from './tickets/ticket-detail';
 import { TicketForm } from './tickets/ticket-form';
 
 const admin: Me = {
@@ -148,6 +150,62 @@ describe('flujo principal', () => {
     expect(req.request.body).toEqual({ assignee_id: 2 });
     req.flush(ticket({ assignee_id: 2, assignee_name: 'Agente Uno' }));
     expect(close).toHaveBeenCalled();
+  });
+
+  it('editar espera la carga antes de permitir escribir y conserva el cambio del usuario', () => {
+    TestBed.inject(AuthService).user.set(admin);
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(TicketForm);
+    fixture.componentRef.setInput('id', '7');
+    fixture.detectChanges();
+    http.expectOne('/api/lookups/clients').flush([{ id: 1, name: 'Acme' }]);
+    http.expectOne('/api/meta').flush({ categories: [{ id: 1, name: 'Incidente' }] });
+    http.expectOne('/api/lookups/assignees').flush([]);
+    expect(fixture.nativeElement.querySelector('[data-testid="title"]')).toBeNull();
+    http.expectOne('/api/tickets/7').flush(ticket());
+    fixture.detectChanges();
+    const title: HTMLInputElement = fixture.nativeElement.querySelector('[data-testid="title"]');
+    title.value = 'Titulo editado';
+    title.dispatchEvent(new Event('input'));
+    fixture.componentInstance.save();
+    const request = http.expectOne('/api/tickets/7');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body.title).toBe('Titulo editado');
+    request.flush(ticket({ title: 'Titulo editado' }));
+  });
+
+  it('espera el refresco para abrir otro cambio de estatus con las transiciones actuales', () => {
+    TestBed.inject(AuthService).user.set(admin);
+    const fixture = TestBed.createComponent(TicketDetailPage);
+    fixture.componentRef.setInput('id', '7');
+    fixture.detectChanges();
+    const flushDetail = (detail: TicketDetail) => {
+      http.expectOne('/api/tickets/7').flush(detail);
+      http.expectOne('/api/tickets/7/comments').flush([]);
+      http.expectOne('/api/tickets/7/events').flush([]);
+      fixture.detectChanges();
+    };
+    flushDetail(ticket());
+    const updated = ticket({
+      status: 'iniciado',
+      assignee_id: 2,
+      allowed_transitions: ['en_proceso', 'pendiente', 'cancelado'],
+    });
+    const open = vi
+      .spyOn(TestBed.inject(MatDialog), 'open')
+      .mockReturnValue({ afterClosed: () => of(updated) } as MatDialogRef<unknown>);
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('[data-testid="change-status"]');
+    button.click();
+    fixture.detectChanges();
+    expect(button.disabled).toBe(true);
+    button.click();
+    expect(open).toHaveBeenCalledTimes(1);
+    flushDetail(updated);
+    expect(button.disabled).toBe(false);
+    open.mockReturnValue({ afterClosed: () => EMPTY } as unknown as MatDialogRef<unknown>);
+    button.click();
+    const config = open.mock.lastCall?.[1] as { data: { ticket: TicketDetail } };
+    expect(config.data.ticket.allowed_transitions).toContain('en_proceso');
   });
 
   function statusDialog(t: TicketDetail) {

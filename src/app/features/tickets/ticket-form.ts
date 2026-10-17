@@ -36,7 +36,7 @@ import { ErrorState, LoadingBar } from '../../shared/states';
       <app-error-state [message]="loadError()!"
         ><a mat-stroked-button routerLink="/tickets">Volver al listado</a></app-error-state
       >
-    } @else {
+    } @else if (!loading()) {
       <form class="card" [formGroup]="form" (ngSubmit)="save()" novalidate>
         @if (error()) {
           <p class="banner error" role="alert">{{ error() }}</p>
