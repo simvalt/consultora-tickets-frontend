@@ -18,7 +18,7 @@ Necesita el backend en `:8000` (ver guía principal). Credenciales **locales** d
 ## Pruebas, lint y compilación
 
 ```bash
-npm test             # Vitest (ng test): 47 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
+npm test             # Vitest (ng test): 49 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
                      #   PagedList, utilidades y el flujo principal por componentes (login → crear → asignar → estatus → cerrar)
 npm run lint         # angular-eslint
 npm run build        # compilación de producción en dist/ (presupuesto inicial < 1 MB)
@@ -89,3 +89,4 @@ Los niveles son acumulativos (Leer < Insertar < Editar < Eliminar). Cada usuario
 - Sólo tema claro. Tras recargar, la app hace una llamada de renovación (`/auth/refresh`) que devuelve 401 si no hay sesión (se ve en la consola; es esperado).
 - Los filtros de listados no se reflejan en la URL.
 - El presupuesto de bundle inicial admite hasta 750 kB sin aviso (Angular Material + Router).
+- Si se recarga o abandona la pagina mientras el servidor rota la cookie de renovacion, la respuesta puede cancelarse y sera necesario iniciar sesion de nuevo. La prueba de recarga espera a que la navegacion haya terminado de restaurar la sesion. El backend tambien documenta el caso de renovaciones simultaneas entre pestanas.

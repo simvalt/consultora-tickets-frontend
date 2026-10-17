@@ -45,6 +45,9 @@ test.describe('sesión y navegación', () => {
   test('la sesión sobrevive a recargar la página y se cierra con «Cerrar sesión»', async ({ page }) => {
     await login(page, ADMIN);
     await page.goto('/tickets');
+    // Esperar a que esta navegacion restaure la sesion antes de recargar.
+    // Recargar durante el refresh cancela su respuesta y puede perder la cookie rotada.
+    await expect(page.getByTestId('ticket-table')).toBeVisible();
     await page.reload();
     await expect(page.getByTestId('ticket-table')).toBeVisible();
     await page.getByTestId('user-menu').click();
