@@ -3,10 +3,14 @@
  * Cada prueba deja los datos como los encontró (o crea registros con nombres únicos).
  */
 import { Page, expect, test } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-const ADMIN = { email: 'admin@consultora.local', password: 'Admin#Local1234' };
-const DEMO_PASSWORD = 'Demo#Local1234';
+const ADMIN = {
+  email: process.env['E2E_ADMIN_EMAIL'] ?? 'admin@consultora.local',
+  password: process.env['E2E_ADMIN_PASSWORD'] ?? 'Admin#Local1234',
+};
+const DEMO_PASSWORD = process.env['E2E_READER_PASSWORD'] ?? 'Demo#Local1234';
 const uid = () => Date.now().toString(36);
 
 async function login(page: Page, user: { email: string; password: string }) {
@@ -259,6 +263,7 @@ test.describe('administración', () => {
   test('crear un rol con la matriz y JSON, asignarlo a un usuario nuevo y entrar con él', async ({ page, context }) => {
     const role = `QA Rol ${uid()}`;
     const email = `qa.${uid()}@consultora.local`;
+    const password = `QA-${randomUUID()}`;
     await page.goto('/roles');
     await page.getByTestId('new-role').click();
     await page.getByTestId('role-name').fill(role);
@@ -275,11 +280,11 @@ test.describe('administración', () => {
     await page.getByTestId('user-password').fill('corta');
     await page.getByTestId('user-save').click();
     await expect(page.getByText('Mínimo 10 caracteres').last()).toBeVisible();
-    await page.getByTestId('user-password').fill('ClaveQA#12345');
+    await page.getByTestId('user-password').fill(password);
     await closeDialog(page, 'user-save');
 
     await context.clearCookies();
-    await login(page, { email, password: 'ClaveQA#12345' });
+    await login(page, { email, password });
     await expect(page).toHaveURL(/\/tickets/); // sin dashboard: entra a la primera sección permitida
     await expect(page.getByTestId('new-ticket')).toHaveCount(0);
   });
@@ -288,8 +293,8 @@ test.describe('administración', () => {
     await page.goto('/roles');
     await expect(page.getByRole('row').filter({ hasText: 'Administrador' })).toContainText('Tu rol');
     await page.goto('/users');
-    await page.getByTestId('search-users').fill('admin@consultora.local');
-    const me = page.getByRole('row').filter({ hasText: 'admin@consultora.local' });
+    await page.getByTestId('search-users').fill(ADMIN.email);
+    const me = page.getByRole('row').filter({ hasText: ADMIN.email });
     await expect(me.getByRole('button', { name: 'Desactivar usuario' })).toHaveCount(0);
     await me.getByRole('button', { name: 'Editar usuario' }).click();
     await expect(page.getByText('No puedes cambiar tus propios permisos')).toBeVisible();
