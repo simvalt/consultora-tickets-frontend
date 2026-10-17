@@ -34,6 +34,8 @@ E2E (23 pruebas): `e2e/main-flow.spec.ts` y `e2e/qa.spec.ts` (sesión, redirecci
 
 ## Firebase Hosting (demo publicada)
 
+El proyecto dedicado de servidor1 es `sivalt-tickets-demo`. Su `Jenkinsfile` valida, compila y publica exclusivamente Hosting mediante OIDC y una identidad propia, sin claves permanentes. Guía de instalacion y retiro: `consultora-tickets-backend/docs/SERVIDOR1_JENKINS.md`. No modifica los sitios actuales.
+
 ```bash
 API_URL=https://tickets-api.sivalt.com/api npm run build:firebase   # compila y genera config.js + firebase.json
 npx firebase-tools@15.32.1 login && npx firebase-tools@15.32.1 use --add
