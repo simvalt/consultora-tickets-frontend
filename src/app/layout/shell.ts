@@ -51,7 +51,7 @@ const NAV: NavItem[] = [
         (closedStart)="menuOpen.set(false)"
         class="shell-nav"
       >
-        <div class="brand"><mat-icon aria-hidden="true">support_agent</mat-icon> Consultora Tickets</div>
+        <div class="brand"><img src="favicon.svg" alt="" width="28" height="28" /> Consultora Tickets</div>
         <nav aria-label="Navegación principal">
           <mat-nav-list>
             @for (item of items(); track item.path) {

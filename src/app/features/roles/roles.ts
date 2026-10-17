@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,7 +20,18 @@ import { Notify } from '../../core/notify.service';
 import { PagedList } from '../../core/paged-list';
 import { confirm } from '../../shared/confirm-dialog';
 import { PermissionsEditor } from '../../shared/permissions-editor';
+import { ColumnPicker, TableColumns } from '../../shared/column-picker';
+import { SELECT_SEARCH } from '../../shared/select-search';
 import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+
+/** Claves = columnas de exportación del backend. */
+const ROLE_COLUMNS = [
+  { key: 'name', label: 'Rol' },
+  { key: 'description', label: 'Descripción' },
+  ...MODULES.map((m) => ({ key: m.key, label: m.label })),
+  { key: 'user_count', label: 'Usuarios' },
+  { key: 'is_active', label: 'Estado' },
+];
 
 @Component({
   selector: 'app-role-dialog',
@@ -127,6 +138,8 @@ export class RoleDialog {
 @Component({
   selector: 'app-roles',
   imports: [
+    ColumnPicker,
+    SELECT_SEARCH,
     ReactiveFormsModule,
     MatTableModule,
     MatSortModule,
@@ -145,6 +158,7 @@ export class RoleDialog {
     <div class="page-header">
       <h1>Roles y permisos</h1>
       <div class="actions">
+        <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
           <mat-icon>download</mat-icon> Exportar CSV
         </button>
@@ -163,9 +177,13 @@ export class RoleDialog {
       <mat-form-field appearance="outline">
         <mat-label>Estado</mat-label>
         <mat-select formControlName="is_active">
+          <app-select-search #se />
           <mat-option value="">Todos</mat-option>
-          <mat-option value="true">Activos</mat-option>
-          <mat-option value="false">Inactivos</mat-option>
+          @for (o of stateOptions | optionFilter: se.term() : filters.value.is_active; track o.id) {
+            <mat-option [value]="o.id">{{ o.name }}</mat-option>
+          } @empty {
+            <mat-option disabled>Sin coincidencias</mat-option>
+          }
         </mat-select>
       </mat-form-field>
     </form>
@@ -197,10 +215,11 @@ export class RoleDialog {
             <th mat-header-cell *matHeaderCellDef mat-sort-header="name">Rol</th>
             <td mat-cell *matCellDef="let r" [class.inactive]="!r.is_active">
               <strong>{{ r.name }}</strong>
-              @if (r.description) {
-                <br /><small class="muted">{{ r.description }}</small>
-              }
             </td>
+          </ng-container>
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>Descripción</th>
+            <td mat-cell *matCellDef="let r" class="muted">{{ r.description || '—' }}</td>
           </ng-container>
           @for (m of modules; track m.key) {
             <ng-container [matColumnDef]="m.key">
@@ -245,8 +264,8 @@ export class RoleDialog {
               }
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          <tr mat-header-row *matHeaderRowDef="displayed()"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayed()"></tr>
         </table>
         <mat-paginator
           [length]="list.total()"
@@ -291,7 +310,13 @@ export class RolesPage implements OnDestroy {
 
   readonly modules = MODULES;
   readonly labels = LEVEL_LABELS;
-  readonly columns = ['name', ...MODULES.map((m) => m.key), 'user_count', 'is_active', 'actions'];
+  readonly cols = new TableColumns('cols:roles', ROLE_COLUMNS);
+  /** Columnas elegidas por el usuario + acciones (siempre al final, no exportable). */
+  readonly displayed = computed(() => [...this.cols.visible(), 'actions']);
+  readonly stateOptions = [
+    { id: 'true', name: 'Activos' },
+    { id: 'false', name: 'Inactivos' },
+  ];
   readonly list = new PagedList<Role>((p) => this.api.get<Page<Role>>('/roles', p), 'name');
   readonly exporting = signal(false);
   readonly filters = this.fb.nonNullable.group({ q: [''], is_active: [''] });
@@ -353,12 +378,14 @@ export class RolesPage implements OnDestroy {
 
   export(): void {
     this.exporting.set(true);
-    this.api.downloadCsv('/roles/export', this.list.queryParams(), 'roles').subscribe({
-      next: () => this.exporting.set(false),
-      error: (e) => {
-        this.exporting.set(false);
-        this.notify.error(errorMessage(e, 'No se pudo exportar.'));
-      },
-    });
+    this.api
+      .downloadCsv('/roles/export', { ...this.list.queryParams(), columns: this.cols.visible() }, 'roles')
+      .subscribe({
+        next: () => this.exporting.set(false),
+        error: (e) => {
+          this.exporting.set(false);
+          this.notify.error(errorMessage(e, 'No se pudo exportar.'));
+        },
+      });
   }
 }

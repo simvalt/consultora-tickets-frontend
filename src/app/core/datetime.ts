@@ -1,22 +1,47 @@
-/** Convierte un ISO UTC del servidor al valor de un <input type="datetime-local"> en la zona horaria del usuario. */
-export function isoToLocalInput(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
+/** Fecha local (sin hora) en formato yyyy-mm-dd, el que esperan los filtros de la API. */
+export function toIsoDate(date: Date | null | undefined): string {
+  if (!date || isNaN(date.getTime())) return '';
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Convierte el valor de un <input type="datetime-local"> (hora local) a ISO UTC para el servidor. */
-export function localInputToIso(value: string | null | undefined): string | null {
-  return value ? new Date(value).toISOString() : null;
-}
-
-/** Fecha local (yyyy-mm-dd) de hoy menos `days` días. */
-export function localDate(daysAgo = 0): string {
+/** Hoy menos `days` días, a medianoche local. */
+export function daysAgo(days = 0): Date {
   const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - days);
+  return d;
+}
+
+export function startOfMonth(): Date {
+  const d = daysAgo(0);
+  d.setDate(1);
+  return d;
+}
+
+export function startOfYear(): Date {
+  const d = daysAgo(0);
+  d.setMonth(0, 1);
+  return d;
+}
+
+/** ISO UTC del servidor → Date (o null). */
+export function fromIso(iso: string | null | undefined): Date | null {
+  return iso ? new Date(iso) : null;
+}
+
+/** Date local → ISO UTC para el servidor (o null). */
+export function toIso(date: Date | null | undefined): string | null {
+  return date && !isNaN(date.getTime()) ? date.toISOString() : null;
+}
+
+/** Une la fecha (día) con la hora (hh:mm) de dos controles; sin hora se usa el final del día (23:59). */
+export function combineDateTime(date: Date | null | undefined, time: Date | null | undefined): Date | null {
+  if (!date || isNaN(date.getTime())) return null;
+  const result = new Date(date);
+  if (time && !isNaN(time.getTime())) result.setHours(time.getHours(), time.getMinutes(), 0, 0);
+  else result.setHours(23, 59, 0, 0);
+  return result;
 }
 
 export function formatDuration(hours: number | null): string {

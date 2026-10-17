@@ -5,13 +5,16 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTimepickerModule } from '@angular/material/timepicker';
 import { Router, RouterLink } from '@angular/router';
+import { DATEPICKER, DATEPICKER_PROVIDERS } from '../../shared/datepicker';
 import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth.service';
-import { isoToLocalInput, localInputToIso } from '../../core/datetime';
+import { combineDateTime, fromIso, toIso } from '../../core/datetime';
 import { Lookups } from '../../core/lookups.service';
 import { LookupItem, Meta, PRIORITIES, PRIORITY_LABELS, TicketDetail } from '../../core/models';
 import { Notify } from '../../core/notify.service';
+import { SELECT_SEARCH } from '../../shared/select-search';
 import { ErrorState, LoadingBar } from '../../shared/states';
 
 @Component({
@@ -24,9 +27,13 @@ import { ErrorState, LoadingBar } from '../../shared/states';
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
+    DATEPICKER,
+    MatTimepickerModule,
+    SELECT_SEARCH,
     ErrorState,
     LoadingBar,
   ],
+  providers: [DATEPICKER_PROVIDERS],
   template: `
     <div class="page-header">
       <h1>{{ id() ? 'Editar ticket' : 'Nuevo ticket' }}</h1>
@@ -62,8 +69,11 @@ import { ErrorState, LoadingBar } from '../../shared/states';
           <mat-form-field appearance="outline">
             <mat-label>Cliente</mat-label>
             <mat-select formControlName="client_id" data-testid="client">
-              @for (c of clients(); track c.id) {
+              <app-select-search #sc />
+              @for (c of clients() | optionFilter: sc.term() : form.value.client_id; track c.id) {
                 <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              } @empty {
+                <mat-option disabled>Sin coincidencias</mat-option>
               }
             </mat-select>
             @if (form.controls.client_id.touched && form.controls.client_id.invalid) {
@@ -73,8 +83,11 @@ import { ErrorState, LoadingBar } from '../../shared/states';
           <mat-form-field appearance="outline">
             <mat-label>Categoría</mat-label>
             <mat-select formControlName="category_id" data-testid="category">
-              @for (c of categories(); track c.id) {
+              <app-select-search #sk />
+              @for (c of categories() | optionFilter: sk.term() : form.value.category_id; track c.id) {
                 <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              } @empty {
+                <mat-option disabled>Sin coincidencias</mat-option>
               }
             </mat-select>
             @if (form.controls.category_id.touched && form.controls.category_id.invalid) {
@@ -84,22 +97,68 @@ import { ErrorState, LoadingBar } from '../../shared/states';
           <mat-form-field appearance="outline">
             <mat-label>Prioridad</mat-label>
             <mat-select formControlName="priority" data-testid="priority">
-              @for (p of priorities; track p) {
-                <mat-option [value]="p">{{ priorityLabels[p] }}</mat-option>
+              <app-select-search #sp />
+              @for (p of priorityOptions | optionFilter: sp.term() : form.value.priority; track p.id) {
+                <mat-option [value]="p.id">{{ p.name }}</mat-option>
+              } @empty {
+                <mat-option disabled>Sin coincidencias</mat-option>
               }
             </mat-select>
           </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Vencimiento (opcional)</mat-label>
-            <input matInput type="datetime-local" formControlName="due_at" data-testid="due" />
-          </mat-form-field>
+          <div class="due span2">
+            <mat-form-field appearance="outline">
+              <mat-label>Vencimiento (opcional)</mat-label>
+              <input
+                matInput
+                [matDatepicker]="duePicker"
+                formControlName="due_date"
+                placeholder="dd/mm/aaaa"
+                data-testid="due-date"
+              />
+              <mat-datepicker-toggle matIconSuffix [for]="duePicker" data-testid="due-picker" />
+              <mat-datepicker #duePicker />
+              @if (form.controls.due_date.hasError('matDatepickerParse')) {
+                <mat-error>Fecha no válida (dd/mm/aaaa)</mat-error>
+              }
+              @if (form.hasError('timeWithoutDate') && form.controls.due_time.touched) {
+                <mat-hint class="hint-error" role="alert">Indica también la fecha</mat-hint>
+              } @else {
+                <mat-hint>Sin hora: vence a las 23:59</mat-hint>
+              }
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="time">
+              <mat-label>Hora</mat-label>
+              <input
+                matInput
+                [matTimepicker]="dueTime"
+                formControlName="due_time"
+                placeholder="hh:mm"
+                data-testid="due-time"
+              />
+              <mat-timepicker-toggle matIconSuffix [for]="dueTime" aria-label="Elegir hora" />
+              <mat-timepicker #dueTime interval="30m" />
+            </mat-form-field>
+            @if (form.value.due_date || form.value.due_time) {
+              <button
+                mat-icon-button
+                type="button"
+                (click)="form.patchValue({ due_date: null, due_time: null })"
+                aria-label="Quitar vencimiento"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+          </div>
           @if (!id() && canAssign()) {
             <mat-form-field appearance="outline" class="span2">
               <mat-label>Responsable (opcional)</mat-label>
               <mat-select formControlName="assignee_id" data-testid="assignee">
+                <app-select-search #sa />
                 <mat-option [value]="null">Sin responsable</mat-option>
-                @for (a of assignees(); track a.id) {
+                @for (a of assignees() | optionFilter: sa.term() : form.value.assignee_id; track a.id) {
                   <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                } @empty {
+                  <mat-option disabled>Sin coincidencias</mat-option>
                 }
               </mat-select>
             </mat-form-field>
@@ -122,6 +181,23 @@ import { ErrorState, LoadingBar } from '../../shared/states';
     form.card {
       max-width: 860px;
     }
+    .due {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .due mat-form-field {
+      flex: 0 1 240px;
+    }
+    .due .time {
+      flex: 0 1 160px;
+    }
+    .hint-error {
+      color: var(--danger);
+    }
+    .due button {
+      margin-top: 8px;
+    }
   `,
 })
 export class TicketForm implements OnInit {
@@ -136,8 +212,7 @@ export class TicketForm implements OnInit {
   private readonly auth = inject(AuthService);
   readonly canAssign = () => this.auth.can('tickets', 3);
 
-  readonly priorities = PRIORITIES;
-  readonly priorityLabels = PRIORITY_LABELS;
+  readonly priorityOptions = PRIORITIES.map((p) => ({ id: p, name: PRIORITY_LABELS[p] }));
   readonly clients = signal<LookupItem[]>([]);
   readonly assignees = signal<LookupItem[]>([]);
   readonly categories = signal<Meta['categories']>([]);
@@ -146,15 +221,21 @@ export class TicketForm implements OnInit {
   readonly error = signal<string | null>(null);
   readonly loadError = signal<string | null>(null);
 
-  readonly form = this.fb.group({
-    title: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(3), Validators.maxLength(200)]),
-    description: this.fb.nonNullable.control(''),
-    client_id: this.fb.control<number | null>(null, [Validators.required]),
-    category_id: this.fb.control<number | null>(null, [Validators.required]),
-    priority: this.fb.nonNullable.control('media'),
-    due_at: this.fb.nonNullable.control(''),
-    assignee_id: this.fb.control<number | null>(null),
-  });
+  readonly form = this.fb.group(
+    {
+      title: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(3), Validators.maxLength(200)]),
+      description: this.fb.nonNullable.control(''),
+      client_id: this.fb.control<number | null>(null, [Validators.required]),
+      category_id: this.fb.control<number | null>(null, [Validators.required]),
+      priority: this.fb.nonNullable.control('media'),
+      // Fecha y hora en controles separados: dos inputs sobre un mismo FormControl no se sincronizan entre sí
+      // (Angular Forms no notifica al otro input) y la hora acabaría aplicándose sobre la fecha de hoy.
+      due_date: this.fb.control<Date | null>(null),
+      due_time: this.fb.control<Date | null>(null),
+      assignee_id: this.fb.control<number | null>(null),
+    },
+    { validators: (g) => (g.value.due_time && !g.value.due_date ? { timeWithoutDate: true } : null) },
+  );
 
   constructor() {
     this.lookups.clients().subscribe((r) => this.clients.set(r));
@@ -174,7 +255,8 @@ export class TicketForm implements OnInit {
           client_id: t.client_id,
           category_id: t.category_id,
           priority: t.priority,
-          due_at: isoToLocalInput(t.due_at),
+          due_date: fromIso(t.due_at),
+          due_time: fromIso(t.due_at),
         });
         // El cliente actual puede estar inactivo: se conserva visible en la lista.
         if (!this.clients().some((c) => c.id === t.client_id)) {
@@ -203,7 +285,7 @@ export class TicketForm implements OnInit {
       client_id: v.client_id,
       category_id: v.category_id,
       priority: v.priority,
-      due_at: localInputToIso(v.due_at),
+      due_at: toIso(combineDateTime(v.due_date, v.due_time)),
     };
     const id = this.id();
     if (!id && this.canAssign() && v.assignee_id !== null) body['assignee_id'] = v.assignee_id;

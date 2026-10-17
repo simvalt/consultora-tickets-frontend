@@ -16,6 +16,7 @@ import { Login } from './login/login';
 import { AssignDialog, StatusDialog } from './tickets/ticket-dialogs';
 import { TicketDetailPage } from './tickets/ticket-detail';
 import { TicketForm } from './tickets/ticket-form';
+import { provideSpanishDates } from '../core/date-adapter';
 
 const admin: Me = {
   id: 1,
@@ -66,6 +67,7 @@ describe('flujo principal', () => {
         { provide: MatDialogRef, useValue: { close: (r: unknown) => close(r) } },
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
+        ...provideSpanishDates(),
       ],
     });
     http = TestBed.inject(HttpTestingController);

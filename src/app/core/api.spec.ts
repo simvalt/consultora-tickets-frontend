@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { errorCode, errorMessage, toHttpParams } from './api';
-import { formatDuration, isoToLocalInput, localInputToIso } from './datetime';
+import { daysAgo, formatDuration, fromIso, toIso, toIsoDate } from './datetime';
 
 describe('toHttpParams', () => {
   it('omite vacíos y repite las claves de los arreglos', () => {
@@ -37,11 +37,17 @@ describe('errorMessage', () => {
 });
 
 describe('fechas', () => {
-  it('convierte de ida y vuelta entre ISO UTC y datetime-local', () => {
+  it('convierte entre Date local, ISO UTC y yyyy-mm-dd', () => {
     const iso = '2030-05-17T15:30:00.000Z';
-    expect(localInputToIso(isoToLocalInput(iso))).toBe(iso);
-    expect(localInputToIso('')).toBeNull();
-    expect(isoToLocalInput(null)).toBe('');
+    expect(toIso(fromIso(iso))).toBe(iso);
+    expect(toIso(null)).toBeNull();
+    expect(fromIso(null)).toBeNull();
+    expect(toIsoDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(toIsoDate(null)).toBe('');
+    expect(toIsoDate(new Date('x'))).toBe('');
+    const d = daysAgo(1);
+    expect(d.getHours()).toBe(0);
+    expect(Math.round((daysAgo(0).getTime() - d.getTime()) / 86_400_000)).toBe(1);
   });
   it('formatea duraciones', () => {
     expect(formatDuration(null)).toBe('—');

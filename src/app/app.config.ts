@@ -15,6 +15,7 @@ import { routes } from './app.routes';
 import { authInterceptor } from './core/auth.interceptor';
 import { AuthService } from './core/auth.service';
 import { spanishPaginatorIntl } from './shared/paginator-intl';
+import { provideSpanishDates } from './core/date-adapter';
 
 registerLocaleData(localeEs, 'es');
 
@@ -25,6 +26,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor])),
     { provide: LOCALE_ID, useValue: 'es' },
     { provide: MatPaginatorIntl, useFactory: spanishPaginatorIntl },
+    ...provideSpanishDates(),
     // Intenta restaurar la sesión con la cookie de refresco antes de resolver las rutas.
     provideAppInitializer(() => firstValueFrom(inject(AuthService).restore())),
   ],

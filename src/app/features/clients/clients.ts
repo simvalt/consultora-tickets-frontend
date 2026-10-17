@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,19 @@ import { Client, Page } from '../../core/models';
 import { Notify } from '../../core/notify.service';
 import { PagedList } from '../../core/paged-list';
 import { confirm } from '../../shared/confirm-dialog';
+import { ColumnPicker, TableColumns } from '../../shared/column-picker';
+import { SELECT_SEARCH } from '../../shared/select-search';
 import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+
+/** Claves = columnas de exportación del backend. */
+const CLIENT_COLUMNS = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'contact_name', label: 'Contacto' },
+  { key: 'email', label: 'Correo' },
+  { key: 'phone', label: 'Teléfono' },
+  { key: 'is_active', label: 'Estado' },
+  { key: 'created_at', label: 'Creado' },
+];
 
 @Component({
   selector: 'app-client-dialog',
@@ -101,6 +113,8 @@ export class ClientDialog {
 @Component({
   selector: 'app-clients',
   imports: [
+    ColumnPicker,
+    SELECT_SEARCH,
     ReactiveFormsModule,
     MatTableModule,
     MatSortModule,
@@ -120,6 +134,7 @@ export class ClientDialog {
     <div class="page-header">
       <h1>Clientes</h1>
       <div class="actions">
+        <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
           <mat-icon>download</mat-icon> Exportar CSV
         </button>
@@ -138,9 +153,13 @@ export class ClientDialog {
       <mat-form-field appearance="outline">
         <mat-label>Estado</mat-label>
         <mat-select formControlName="is_active">
+          <app-select-search #se />
           <mat-option value="">Todos</mat-option>
-          <mat-option value="true">Activos</mat-option>
-          <mat-option value="false">Inactivos</mat-option>
+          @for (o of stateOptions | optionFilter: se.term() : filters.value.is_active; track o.id) {
+            <mat-option [value]="o.id">{{ o.name }}</mat-option>
+          } @empty {
+            <mat-option disabled>Sin coincidencias</mat-option>
+          }
         </mat-select>
       </mat-form-field>
     </form>
@@ -214,8 +233,8 @@ export class ClientDialog {
               }
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          <tr mat-header-row *matHeaderRowDef="displayed()"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayed()"></tr>
         </table>
         <mat-paginator
           [length]="list.total()"
@@ -235,7 +254,13 @@ export class ClientsPage implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly columns = ['name', 'contact_name', 'email', 'phone', 'is_active', 'created_at', 'actions'];
+  readonly cols = new TableColumns('cols:clients', CLIENT_COLUMNS);
+  /** Columnas elegidas por el usuario + acciones (siempre al final, no exportable). */
+  readonly displayed = computed(() => [...this.cols.visible(), 'actions']);
+  readonly stateOptions = [
+    { id: 'true', name: 'Activos' },
+    { id: 'false', name: 'Inactivos' },
+  ];
   readonly list = new PagedList<Client>((p) => this.api.get<Page<Client>>('/clients', p), 'name');
   readonly exporting = signal(false);
   readonly filters = this.fb.nonNullable.group({ q: [''], is_active: [''] });
@@ -299,12 +324,14 @@ export class ClientsPage implements OnDestroy {
 
   export(): void {
     this.exporting.set(true);
-    this.api.downloadCsv('/clients/export', this.list.queryParams(), 'clientes').subscribe({
-      next: () => this.exporting.set(false),
-      error: (e) => {
-        this.exporting.set(false);
-        this.notify.error(errorMessage(e, 'No se pudo exportar.'));
-      },
-    });
+    this.api
+      .downloadCsv('/clients/export', { ...this.list.queryParams(), columns: this.cols.visible() }, 'clientes')
+      .subscribe({
+        next: () => this.exporting.set(false),
+        error: (e) => {
+          this.exporting.set(false);
+          this.notify.error(errorMessage(e, 'No se pudo exportar.'));
+        },
+      });
   }
 }

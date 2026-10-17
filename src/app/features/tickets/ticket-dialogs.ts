@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { Api, errorMessage } from '../../core/api';
+import { SELECT_SEARCH } from '../../shared/select-search';
 import { Lookups } from '../../core/lookups.service';
 import { LookupItem, REASON_REQUIRED, STATUS_LABELS, TicketDetail, TicketStatus } from '../../core/models';
 
@@ -16,7 +17,15 @@ export interface TicketDialogData {
 /** Cambio de estatus: sólo ofrece transiciones válidas y pide motivo/resolución/responsable según el caso. */
 @Component({
   selector: 'app-status-dialog',
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    SELECT_SEARCH,
+  ],
   template: `
     <h2 mat-dialog-title>Cambiar estatus</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
@@ -27,8 +36,11 @@ export interface TicketDialogData {
         <mat-form-field appearance="outline" class="full">
           <mat-label>Nuevo estatus</mat-label>
           <mat-select formControlName="status" data-testid="new-status">
-            @for (s of data.ticket.allowed_transitions; track s) {
-              <mat-option [value]="s">{{ labels[s] }}{{ isReopen(s) ? ' (reapertura)' : '' }}</mat-option>
+            <app-select-search #st />
+            @for (o of transitionOptions | optionFilter: st.term() : form.value.status; track o.id) {
+              <mat-option [value]="o.id">{{ o.name }}</mat-option>
+            } @empty {
+              <mat-option disabled>Sin coincidencias</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -37,8 +49,11 @@ export interface TicketDialogData {
           <mat-form-field appearance="outline" class="full">
             <mat-label>Responsable</mat-label>
             <mat-select formControlName="assignee_id" data-testid="status-assignee">
-              @for (a of assignees(); track a.id) {
+              <app-select-search #sa />
+              @for (a of assignees() | optionFilter: sa.term() : form.value.assignee_id; track a.id) {
                 <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              } @empty {
+                <mat-option disabled>Sin coincidencias</mat-option>
               }
             </mat-select>
             <mat-hint>Este estatus requiere un responsable</mat-hint>
@@ -87,6 +102,10 @@ export class StatusDialog {
   private readonly api = inject(Api);
   private readonly fb = inject(FormBuilder);
   readonly labels = STATUS_LABELS;
+  readonly transitionOptions = this.data.ticket.allowed_transitions.map((s) => ({
+    id: s,
+    name: STATUS_LABELS[s] + (this.data.ticket.status === 'cerrado' && s === 'en_proceso' ? ' (reapertura)' : ''),
+  }));
   readonly assignees = signal<LookupItem[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -152,7 +171,7 @@ export class StatusDialog {
 
 @Component({
   selector: 'app-assign-dialog',
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatSelectModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatSelectModule, MatButtonModule, SELECT_SEARCH],
   template: `
     <h2 mat-dialog-title>{{ data.ticket.assignee_id ? 'Cambiar responsable' : 'Asignar responsable' }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()">
@@ -163,11 +182,14 @@ export class StatusDialog {
         <mat-form-field appearance="outline" class="full">
           <mat-label>Responsable</mat-label>
           <mat-select formControlName="assignee_id" data-testid="assign-select">
+            <app-select-search #sa />
             @if (data.ticket.status === 'sin_inicio') {
               <mat-option [value]="null">Sin responsable</mat-option>
             }
-            @for (a of assignees(); track a.id) {
+            @for (a of assignees() | optionFilter: sa.term() : form.value.assignee_id; track a.id) {
               <mat-option [value]="a.id">{{ a.name }}</mat-option>
+            } @empty {
+              <mat-option disabled>Sin coincidencias</mat-option>
             }
           </mat-select>
         </mat-form-field>

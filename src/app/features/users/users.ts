@@ -22,11 +22,24 @@ import { PagedList } from '../../core/paged-list';
 import { confirm } from '../../shared/confirm-dialog';
 import { PermMap } from '../../core/permissions-json';
 import { PermissionsEditor } from '../../shared/permissions-editor';
+import { ColumnPicker, TableColumns } from '../../shared/column-picker';
+import { SELECT_SEARCH } from '../../shared/select-search';
 import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+
+/** Claves = columnas de exportación del backend. */
+const USER_COLUMNS = [
+  { key: 'full_name', label: 'Nombre' },
+  { key: 'email', label: 'Correo' },
+  { key: 'role', label: 'Rol' },
+  { key: 'is_active', label: 'Estado' },
+  { key: 'last_login_at', label: 'Último acceso' },
+  { key: 'created_at', label: 'Creado', visible: false },
+];
 
 @Component({
   selector: 'app-user-dialog',
   imports: [
+    SELECT_SEARCH,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -60,8 +73,11 @@ import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
           <mat-form-field appearance="outline">
             <mat-label>Rol</mat-label>
             <mat-select formControlName="role_id" data-testid="user-role">
-              @for (r of roles(); track r.id) {
+              <app-select-search #sr />
+              @for (r of roles() | optionFilter: sr.term() : form.value.role_id; track r.id) {
                 <mat-option [value]="r.id">{{ r.name }}</mat-option>
+              } @empty {
+                <mat-option disabled>Sin coincidencias</mat-option>
               }
             </mat-select>
             @if (form.controls.role_id.touched && form.controls.role_id.invalid) {
@@ -170,6 +186,8 @@ export class UserDialog {
 @Component({
   selector: 'app-users',
   imports: [
+    ColumnPicker,
+    SELECT_SEARCH,
     ReactiveFormsModule,
     MatTableModule,
     MatSortModule,
@@ -189,6 +207,7 @@ export class UserDialog {
     <div class="page-header">
       <h1>Usuarios</h1>
       <div class="actions">
+        <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
           <mat-icon>download</mat-icon> Exportar CSV
         </button>
@@ -207,18 +226,25 @@ export class UserDialog {
       <mat-form-field appearance="outline">
         <mat-label>Rol</mat-label>
         <mat-select formControlName="role_id">
+          <app-select-search #sr />
           <mat-option value="">Todos</mat-option>
-          @for (r of roles(); track r.id) {
+          @for (r of roles() | optionFilter: sr.term() : filters.value.role_id; track r.id) {
             <mat-option [value]="r.id">{{ r.name }}</mat-option>
+          } @empty {
+            <mat-option disabled>Sin coincidencias</mat-option>
           }
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline">
         <mat-label>Estado</mat-label>
         <mat-select formControlName="is_active">
+          <app-select-search #se />
           <mat-option value="">Todos</mat-option>
-          <mat-option value="true">Activos</mat-option>
-          <mat-option value="false">Inactivos</mat-option>
+          @for (o of stateOptions | optionFilter: se.term() : filters.value.is_active; track o.id) {
+            <mat-option [value]="o.id">{{ o.name }}</mat-option>
+          } @empty {
+            <mat-option disabled>Sin coincidencias</mat-option>
+          }
         </mat-select>
       </mat-form-field>
     </form>
@@ -262,6 +288,10 @@ export class UserDialog {
               }}</span>
             </td>
           </ng-container>
+          <ng-container matColumnDef="created_at">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="created_at">Creado</th>
+            <td mat-cell *matCellDef="let u">{{ u.created_at | date: 'dd/MM/yyyy' }}</td>
+          </ng-container>
           <ng-container matColumnDef="last_login_at">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="last_login_at">Último acceso</th>
             <td mat-cell *matCellDef="let u">
@@ -292,8 +322,8 @@ export class UserDialog {
               }
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          <tr mat-header-row *matHeaderRowDef="displayed()"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayed()"></tr>
         </table>
         <mat-paginator
           [length]="list.total()"
@@ -314,7 +344,13 @@ export class UsersPage implements OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   readonly me = inject(AuthService).user;
 
-  readonly columns = ['full_name', 'email', 'role', 'is_active', 'last_login_at', 'actions'];
+  readonly cols = new TableColumns('cols:users', USER_COLUMNS);
+  /** Columnas elegidas por el usuario + acciones (siempre al final, no exportable). */
+  readonly displayed = computed(() => [...this.cols.visible(), 'actions']);
+  readonly stateOptions = [
+    { id: 'true', name: 'Activos' },
+    { id: 'false', name: 'Inactivos' },
+  ];
   readonly list = new PagedList<User>((p) => this.api.get<Page<User>>('/users', p), 'full_name');
   readonly roles = signal<LookupItem[]>([]);
   readonly exporting = signal(false);
@@ -380,12 +416,14 @@ export class UsersPage implements OnDestroy {
 
   export(): void {
     this.exporting.set(true);
-    this.api.downloadCsv('/users/export', this.list.queryParams(), 'usuarios').subscribe({
-      next: () => this.exporting.set(false),
-      error: (e) => {
-        this.exporting.set(false);
-        this.notify.error(errorMessage(e, 'No se pudo exportar.'));
-      },
-    });
+    this.api
+      .downloadCsv('/users/export', { ...this.list.queryParams(), columns: this.cols.visible() }, 'usuarios')
+      .subscribe({
+        next: () => this.exporting.set(false),
+        error: (e) => {
+          this.exporting.set(false);
+          this.notify.error(errorMessage(e, 'No se pudo exportar.'));
+        },
+      });
   }
 }

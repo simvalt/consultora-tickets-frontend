@@ -353,8 +353,10 @@ test.describe('dashboard', () => {
 
   test('sin datos en el periodo muestra el estado vacío', async ({ page }) => {
     await login(page, ADMIN);
-    await page.locator('input[formcontrolname="date_from"]').fill('2001-01-01');
-    await page.locator('input[formcontrolname="date_to"]').fill('2001-01-31');
+    // Escribir a mano también funciona (formato dd/mm/aaaa).
+    await page.getByTestId('date-from').fill('01/01/2001');
+    await page.getByTestId('date-to').fill('31/01/2001');
+    await page.getByTestId('date-to').blur();
     await expect(page.getByText('Sin datos para mostrar')).toBeVisible();
   });
 });

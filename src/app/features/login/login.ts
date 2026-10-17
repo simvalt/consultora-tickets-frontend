@@ -23,7 +23,7 @@ import { AuthService } from '../../core/auth.service';
   template: `
     <div class="login-wrap">
       <form class="login-card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-        <div class="login-brand"><mat-icon aria-hidden="true">support_agent</mat-icon></div>
+        <div class="login-brand"><img src="favicon.svg" alt="" width="56" height="56" /></div>
         <h1>Consultora Tickets</h1>
         <p class="muted">Inicia sesión para continuar</p>
 
