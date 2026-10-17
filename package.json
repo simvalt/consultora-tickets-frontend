@@ -9,7 +9,9 @@
     "test": "ng test --watch=false",
     "lint": "ng lint",
     "e2e": "playwright test",
-    "format": "prettier --write \"src/**/*.{ts,html,scss}\""
+    "format": "prettier --write \"src/**/*.{ts,html,scss}\"",
+    "build:firebase": "node scripts/build-firebase.mjs",
+    "deploy:firebase": "npx firebase-tools@15.32.1 deploy --only hosting"
   },
   "private": true,
   "packageManager": "npm@12.0.2",

@@ -18,7 +18,7 @@ Necesita el backend en `:8000` (ver guía principal). Credenciales **locales** d
 ## Pruebas, lint y compilación
 
 ```bash
-npm test             # Vitest (ng test): 46 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
+npm test             # Vitest (ng test): 47 pruebas — auth/interceptor (renovación de token), guards, permisos, editor de permisos matriz/JSON,
                      #   PagedList, utilidades y el flujo principal por componentes (login → crear → asignar → estatus → cerrar)
 npm run lint         # angular-eslint
 npm run build        # compilación de producción en dist/ (presupuesto inicial < 1 MB)
@@ -31,6 +31,22 @@ E2E (23 pruebas): `e2e/main-flow.spec.ts` y `e2e/qa.spec.ts` (sesión, redirecci
 
 - **Tiempo de ejecución** (`public/config.js` → `window.APP_CONFIG.apiUrl`, por defecto `/api`). En Docker se regenera al arrancar a partir de `API_URL`, sin recompilar. Mantén la API en el **mismo origen** (recomendado) para que la cookie de refresco `HttpOnly` funcione sin CORS.
 - Variables del contenedor: `BACKEND_URL` (destino del proxy `/api`, por defecto `http://backend:8000`) y `API_URL` (prefijo que usa el navegador). Ver `.env.example`.
+
+## Firebase Hosting (demo publicada)
+
+```bash
+API_URL=https://tickets-api.sivalt.com/api npm run build:firebase   # compila y genera config.js + firebase.json
+npx firebase-tools@15.32.1 login && npx firebase-tools@15.32.1 use --add
+npm run deploy:firebase
+```
+
+`firebase.json` lo genera el script con:
+- *Fallback* de la SPA.
+- CSP cuyo `connect-src` sólo permite la API indicada.
+- HSTS y las demás cabeceras de seguridad.
+- Caché inmutable para los bundles con hash, y `no-store` para `index.html`, `config.js` y las rutas.
+
+Con la API en otro origen, el interceptor envía `withCredentials` y `X-Requested-With` sólo a la API, nunca a terceros. Guía completa (dominio, túnel, comprobaciones): `consultora-tickets-backend/docs/DESPLIEGUE_DEMO.md`. Probado en local con el emulador de Hosting en otro origen que la API: 23/23 E2E.
 
 ## Docker
 

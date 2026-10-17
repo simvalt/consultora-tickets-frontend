@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -91,6 +91,21 @@ describe('AuthService', () => {
     http.expectOne('/api/auth/refresh').flush({}, { status: 401, statusText: 'no' });
     expect(status).toBe(401);
     expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it('marca las peticiones a la API (credenciales y X-Requested-With) pero no las de terceros', () => {
+    auth.refresh().subscribe({ error: () => undefined });
+    const refresh = http.expectOne('/api/auth/refresh');
+    expect(refresh.request.withCredentials).toBe(true);
+    expect(refresh.request.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
+    refresh.flush({}, { status: 401, statusText: 'no' });
+
+    TestBed.inject(HttpClient).get('https://otro.example/datos').subscribe();
+    const ext = http.expectOne('https://otro.example/datos');
+    expect(ext.request.withCredentials).toBe(false);
+    expect(ext.request.headers.has('X-Requested-With')).toBe(false);
+    expect(ext.request.headers.has('Authorization')).toBe(false);
+    ext.flush({});
   });
 
   it('un 401 en /auth/login no intenta renovar', () => {

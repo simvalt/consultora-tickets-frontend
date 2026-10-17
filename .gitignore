@@ -47,3 +47,6 @@ dist/
 .angular/
 test-results/
 playwright-report/
+.firebase/
+.firebaserc
+firebase-debug.log

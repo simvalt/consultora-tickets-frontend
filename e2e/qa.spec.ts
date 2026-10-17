@@ -66,7 +66,7 @@ test.describe('sesión y navegación', () => {
     await page.getByTestId('password').fill(ADMIN.password);
     await page.getByTestId('submit').click();
     await page.waitForURL((u) => !u.pathname.startsWith('/login'));
-    expect(new URL(page.url()).host).toBe('localhost:4200');
+    expect(new URL(page.url()).host).toBe(new URL(test.info().project.use.baseURL ?? 'http://localhost:4200').host);
   });
 
   test('sin cookie de refresco, recargar lleva al login', async ({ page, context }) => {
