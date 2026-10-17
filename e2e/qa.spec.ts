@@ -319,6 +319,7 @@ test.describe('administración', () => {
     await page.getByTestId('cp-save').click();
     await expect(page.getByTestId('cp-error')).toContainText('no es correcta');
     await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.locator('mat-dialog-container')).toHaveCount(0);
 
     await change(DEMO_PASSWORD, 'OtraClave#2026');
     await page.getByTestId('cp-confirm').fill('distinta#2026');
