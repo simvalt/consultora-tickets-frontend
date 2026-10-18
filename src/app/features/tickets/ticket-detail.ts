@@ -151,11 +151,13 @@ import { AssignDialog, StatusDialog } from './ticket-dialogs';
               <dt>Última modificación</dt>
               <dd>{{ t.updated_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
               <dt>Inicio de atención</dt>
-              <dd>{{ t.started_at ? (t.started_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
+              <dd>{{ t.started_at ? (t.started_at | date: 'dd/MM/yyyy HH:mm') : 'Sin fecha' }}</dd>
               <dt>Cierre</dt>
-              <dd>{{ t.closed_at ? (t.closed_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
+              <dd>{{ t.closed_at ? (t.closed_at | date: 'dd/MM/yyyy HH:mm') : 'Sin fecha' }}</dd>
               <dt>Vencimiento</dt>
-              <dd [class.overdue]="t.is_overdue">{{ t.due_at ? (t.due_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
+              <dd [class.overdue]="t.is_overdue">
+                {{ t.due_at ? (t.due_at | date: 'dd/MM/yyyy HH:mm') : 'Sin fecha' }}
+              </dd>
             </dl>
           </section>
           <section class="card">
@@ -254,7 +256,7 @@ import { AssignDialog, StatusDialog } from './ticket-dialogs';
       flex: none;
     }
     .reason {
-      background: var(--surface-alt);
+      background: var(--surface-2);
       border-radius: 6px;
       padding: 6px 8px;
       margin-top: 4px;

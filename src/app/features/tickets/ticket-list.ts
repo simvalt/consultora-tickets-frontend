@@ -33,7 +33,7 @@ import { PagedList } from '../../core/paged-list';
 import { PriorityBadge, StatusBadge } from '../../shared/badges';
 import { ColumnPicker, TableColumns } from '../../shared/column-picker';
 import { SELECT_SEARCH } from '../../shared/select-search';
-import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+import { EmptyState, ErrorState, LoadingBar, TableSkeleton } from '../../shared/states';
 
 /** Claves = columnas de exportación del backend (mismo orden y selección en tabla y CSV). */
 const TICKET_COLUMNS = [
@@ -57,6 +57,7 @@ const TICKET_COLUMNS = [
 @Component({
   selector: 'app-ticket-list',
   imports: [
+    TableSkeleton,
     ReactiveFormsModule,
     RouterLink,
     DatePipe,
@@ -82,7 +83,17 @@ const TICKET_COLUMNS = [
   providers: [DATEPICKER_PROVIDERS],
   template: `
     <div class="page-header">
-      <h1>Tickets</h1>
+      <h1>
+        Tickets
+        <span class="subtitle">
+          @if (list.loaded()) {
+            {{ list.total() }} {{ list.total() === 1 ? 'ticket' : 'tickets'
+            }}{{ list.filtered() ? ' con estos filtros' : '' }}
+          } @else {
+            Cargando…
+          }
+        </span>
+      </h1>
       <div class="actions">
         <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
@@ -122,8 +133,18 @@ const TICKET_COLUMNS = [
           }
         </mat-select>
       </mat-form-field>
+      <button
+        mat-stroked-button
+        type="button"
+        class="more-toggle"
+        (click)="moreFilters.set(!moreFilters())"
+        [attr.aria-expanded]="moreFilters()"
+        aria-controls="more-filters"
+      >
+        <mat-icon>tune</mat-icon> {{ moreFilters() ? 'Menos filtros' : 'Más filtros' }}
+      </button>
     </form>
-    <form class="filters" [formGroup]="filters">
+    <form class="filters more" id="more-filters" [class.open]="moreFilters()" [formGroup]="filters">
       <mat-form-field appearance="outline">
         <mat-label>Cliente</mat-label>
         <mat-select formControlName="client_id" data-testid="filter-client">
@@ -169,14 +190,16 @@ const TICKET_COLUMNS = [
         </mat-date-range-input>
         <mat-datepicker-toggle matIconSuffix [for]="createdPicker" data-testid="created-picker" />
         <mat-date-range-picker #createdPicker />
-        <mat-hint>dd/mm/aaaa – dd/mm/aaaa</mat-hint>
+        <mat-hint>dd/mm/aaaa a dd/mm/aaaa</mat-hint>
       </mat-form-field>
       <mat-checkbox formControlName="overdue">Sólo vencidos</mat-checkbox>
       <button mat-button type="button" (click)="clear()">Limpiar filtros</button>
     </form>
 
-    <app-loading-bar [active]="list.loading()" />
-    @if (list.error()) {
+    <app-loading-bar [active]="list.loading() && list.loaded()" />
+    @if (!list.loaded()) {
+      <app-table-skeleton />
+    } @else if (list.error()) {
       <app-error-state [message]="list.error()!"
         ><button mat-stroked-button (click)="list.load()">Reintentar</button></app-error-state
       >
@@ -211,7 +234,7 @@ const TICKET_COLUMNS = [
           </ng-container>
           <ng-container matColumnDef="description">
             <th mat-header-cell *matHeaderCellDef>Descripción</th>
-            <td mat-cell *matCellDef="let t" class="clip">{{ t.description || '—' }}</td>
+            <td mat-cell *matCellDef="let t" class="clip">{{ t.description || 'Sin descripción' }}</td>
           </ng-container>
           <ng-container matColumnDef="client">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="client">Cliente</th>
@@ -240,7 +263,7 @@ const TICKET_COLUMNS = [
           <ng-container matColumnDef="due_at">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="due_at">Vencimiento</th>
             <td mat-cell *matCellDef="let t" [class.overdue]="t.is_overdue">
-              {{ t.due_at ? (t.due_at | date: 'dd/MM/yyyy HH:mm') : '—' }}
+              {{ t.due_at ? (t.due_at | date: 'dd/MM/yyyy HH:mm') : 'Sin fecha' }}
               @if (t.is_overdue) {
                 <mat-icon class="inline-icon" aria-label="Vencido">warning</mat-icon>
               }
@@ -256,15 +279,19 @@ const TICKET_COLUMNS = [
           </ng-container>
           <ng-container matColumnDef="started_at">
             <th mat-header-cell *matHeaderCellDef>Inicio de atención</th>
-            <td mat-cell *matCellDef="let t">{{ t.started_at ? (t.started_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+            <td mat-cell *matCellDef="let t">
+              {{ t.started_at ? (t.started_at | date: 'dd/MM/yyyy HH:mm') : 'Sin fecha' }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="closed_at">
             <th mat-header-cell *matHeaderCellDef>Cierre</th>
-            <td mat-cell *matCellDef="let t">{{ t.closed_at ? (t.closed_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+            <td mat-cell *matCellDef="let t">
+              {{ t.closed_at ? (t.closed_at | date: 'dd/MM/yyyy HH:mm') : 'Sin fecha' }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="resolution">
             <th mat-header-cell *matHeaderCellDef>Resolución</th>
-            <td mat-cell *matCellDef="let t" class="clip">{{ t.resolution || '—' }}</td>
+            <td mat-cell *matCellDef="let t" class="clip">{{ t.resolution || 'Sin resolución' }}</td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayed()"></tr>
           <tr mat-row class="clickable" *matRowDef="let row; columns: displayed()" (click)="open(row)"></tr>
@@ -314,6 +341,8 @@ export class TicketList implements OnDestroy {
   readonly assignees = signal<LookupItem[]>([]);
   readonly categories = signal<Meta['categories']>([]);
   readonly exporting = signal(false);
+  /** En móvil los filtros secundarios van plegados para que la lista quede a la vista. */
+  readonly moreFilters = signal(false);
 
   readonly filters = this.fb.group({
     q: this.fb.nonNullable.control(''),

@@ -50,7 +50,7 @@ describe('fechas', () => {
     expect(Math.round((daysAgo(0).getTime() - d.getTime()) / 86_400_000)).toBe(1);
   });
   it('formatea duraciones', () => {
-    expect(formatDuration(null)).toBe('—');
+    expect(formatDuration(null)).toBe('Sin datos');
     expect(formatDuration(0.5)).toBe('30 min');
     expect(formatDuration(20)).toBe('20.0 h');
     expect(formatDuration(72)).toBe('3.0 días');

@@ -45,7 +45,7 @@ export function combineDateTime(date: Date | null | undefined, time: Date | null
 }
 
 export function formatDuration(hours: number | null): string {
-  if (hours === null) return '—';
+  if (hours === null) return 'Sin datos';
   if (hours < 1) return `${Math.round(hours * 60)} min`;
   if (hours < 48) return `${hours.toFixed(1)} h`;
   return `${(hours / 24).toFixed(1)} días`;

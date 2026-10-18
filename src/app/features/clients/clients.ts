@@ -21,7 +21,7 @@ import { PagedList } from '../../core/paged-list';
 import { confirm } from '../../shared/confirm-dialog';
 import { ColumnPicker, TableColumns } from '../../shared/column-picker';
 import { SELECT_SEARCH } from '../../shared/select-search';
-import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+import { EmptyState, ErrorState, LoadingBar, TableSkeleton } from '../../shared/states';
 
 /** Claves = columnas de exportación del backend. */
 const CLIENT_COLUMNS = [
@@ -113,6 +113,7 @@ export class ClientDialog {
 @Component({
   selector: 'app-clients',
   imports: [
+    TableSkeleton,
     ColumnPicker,
     SELECT_SEARCH,
     ReactiveFormsModule,
@@ -132,7 +133,17 @@ export class ClientDialog {
   ],
   template: `
     <div class="page-header">
-      <h1>Clientes</h1>
+      <h1>
+        Clientes
+        <span class="subtitle">
+          @if (list.loaded()) {
+            {{ list.total() }} {{ list.total() === 1 ? 'cliente' : 'clientes'
+            }}{{ list.filtered() ? ' con estos filtros' : '' }}
+          } @else {
+            Cargando…
+          }
+        </span>
+      </h1>
       <div class="actions">
         <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
@@ -164,8 +175,10 @@ export class ClientDialog {
       </mat-form-field>
     </form>
 
-    <app-loading-bar [active]="list.loading()" />
-    @if (list.error()) {
+    <app-loading-bar [active]="list.loading() && list.loaded()" />
+    @if (!list.loaded()) {
+      <app-table-skeleton />
+    } @else if (list.error()) {
       <app-error-state [message]="list.error()!"
         ><button mat-stroked-button (click)="list.load()">Reintentar</button></app-error-state
       >
@@ -189,15 +202,15 @@ export class ClientDialog {
           </ng-container>
           <ng-container matColumnDef="contact_name">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="contact_name">Contacto</th>
-            <td mat-cell *matCellDef="let c">{{ c.contact_name || '—' }}</td>
+            <td mat-cell *matCellDef="let c">{{ c.contact_name || 'Sin contacto' }}</td>
           </ng-container>
           <ng-container matColumnDef="email">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="email">Correo</th>
-            <td mat-cell *matCellDef="let c">{{ c.email || '—' }}</td>
+            <td mat-cell *matCellDef="let c">{{ c.email || 'Sin correo' }}</td>
           </ng-container>
           <ng-container matColumnDef="phone">
             <th mat-header-cell *matHeaderCellDef>Teléfono</th>
-            <td mat-cell *matCellDef="let c">{{ c.phone || '—' }}</td>
+            <td mat-cell *matCellDef="let c">{{ c.phone || 'Sin teléfono' }}</td>
           </ng-container>
           <ng-container matColumnDef="is_active">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="is_active">Estado</th>

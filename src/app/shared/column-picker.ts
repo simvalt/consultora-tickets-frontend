@@ -179,7 +179,7 @@ export class TableColumns {
       display: flex;
       align-items: center;
       gap: 4px;
-      background: var(--mat-sys-surface-container, #fff);
+      background: var(--surface);
       border-radius: 6px;
     }
     .cp-item mat-checkbox {
@@ -204,7 +204,7 @@ export class TableColumns {
       height: 18px;
     }
     .cdk-drag-preview {
-      box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+      box-shadow: var(--shadow-lg);
     }
     .cdk-drag-placeholder {
       opacity: 0.3;

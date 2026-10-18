@@ -31,6 +31,13 @@ export class PagedList<T> {
     this.order.set(defaultOrder);
   }
 
+  /** Hay algún filtro con valor (texto, listas no vacías, booleanos verdaderos). */
+  filtered(): boolean {
+    return Object.values(this.filters).some((v) =>
+      Array.isArray(v) ? v.length > 0 : v !== '' && v !== null && v !== undefined && v !== false,
+    );
+  }
+
   /** Filtros + orden, sin paginación (se reutiliza en la exportación CSV). */
   queryParams(): Params {
     return { ...this.filters, sort: this.sort(), order: this.order() };

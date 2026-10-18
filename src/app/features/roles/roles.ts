@@ -22,7 +22,7 @@ import { confirm } from '../../shared/confirm-dialog';
 import { PermissionsEditor } from '../../shared/permissions-editor';
 import { ColumnPicker, TableColumns } from '../../shared/column-picker';
 import { SELECT_SEARCH } from '../../shared/select-search';
-import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+import { EmptyState, ErrorState, LoadingBar, TableSkeleton } from '../../shared/states';
 
 /** Claves = columnas de exportación del backend. */
 const ROLE_COLUMNS = [
@@ -138,6 +138,7 @@ export class RoleDialog {
 @Component({
   selector: 'app-roles',
   imports: [
+    TableSkeleton,
     ColumnPicker,
     SELECT_SEARCH,
     ReactiveFormsModule,
@@ -156,7 +157,17 @@ export class RoleDialog {
   ],
   template: `
     <div class="page-header">
-      <h1>Roles y permisos</h1>
+      <h1>
+        Roles y permisos
+        <span class="subtitle">
+          @if (list.loaded()) {
+            {{ list.total() }} {{ list.total() === 1 ? 'rol' : 'roles'
+            }}{{ list.filtered() ? ' con estos filtros' : '' }}
+          } @else {
+            Cargando…
+          }
+        </span>
+      </h1>
       <div class="actions">
         <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
@@ -188,8 +199,10 @@ export class RoleDialog {
       </mat-form-field>
     </form>
 
-    <app-loading-bar [active]="list.loading()" />
-    @if (list.error()) {
+    <app-loading-bar [active]="list.loading() && list.loaded()" />
+    @if (!list.loaded()) {
+      <app-table-skeleton />
+    } @else if (list.error()) {
       <app-error-state [message]="list.error()!"
         ><button mat-stroked-button (click)="list.load()">Reintentar</button></app-error-state
       >
@@ -219,7 +232,7 @@ export class RoleDialog {
           </ng-container>
           <ng-container matColumnDef="description">
             <th mat-header-cell *matHeaderCellDef>Descripción</th>
-            <td mat-cell *matCellDef="let r" class="muted">{{ r.description || '—' }}</td>
+            <td mat-cell *matCellDef="let r" class="muted">{{ r.description || 'Sin descripción' }}</td>
           </ng-container>
           @for (m of modules; track m.key) {
             <ng-container [matColumnDef]="m.key">
@@ -279,24 +292,19 @@ export class RoleDialog {
   `,
   styles: `
     :host ::ng-deep .lvl-0 {
-      background: #eceef3;
-      color: #5b6475;
+      --tone: var(--muted);
     }
     :host ::ng-deep .lvl-1 {
-      background: #dbeafe;
-      color: #1e40af;
+      --tone: var(--st-iniciado);
     }
     :host ::ng-deep .lvl-2 {
-      background: #e0e7ff;
-      color: #3730a3;
+      --tone: var(--st-en_proceso);
     }
     :host ::ng-deep .lvl-3 {
-      background: #fef3c7;
-      color: #92400e;
+      --tone: var(--warning);
     }
     :host ::ng-deep .lvl-4 {
-      background: #fee2e2;
-      color: #991b1b;
+      --tone: var(--danger);
     }
   `,
 })

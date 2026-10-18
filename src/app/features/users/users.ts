@@ -24,7 +24,7 @@ import { PermMap } from '../../core/permissions-json';
 import { PermissionsEditor } from '../../shared/permissions-editor';
 import { ColumnPicker, TableColumns } from '../../shared/column-picker';
 import { SELECT_SEARCH } from '../../shared/select-search';
-import { EmptyState, ErrorState, LoadingBar } from '../../shared/states';
+import { EmptyState, ErrorState, LoadingBar, TableSkeleton } from '../../shared/states';
 
 /** Claves = columnas de exportación del backend. */
 const USER_COLUMNS = [
@@ -186,6 +186,7 @@ export class UserDialog {
 @Component({
   selector: 'app-users',
   imports: [
+    TableSkeleton,
     ColumnPicker,
     SELECT_SEARCH,
     ReactiveFormsModule,
@@ -205,7 +206,17 @@ export class UserDialog {
   ],
   template: `
     <div class="page-header">
-      <h1>Usuarios</h1>
+      <h1>
+        Usuarios
+        <span class="subtitle">
+          @if (list.loaded()) {
+            {{ list.total() }} {{ list.total() === 1 ? 'usuario' : 'usuarios'
+            }}{{ list.filtered() ? ' con estos filtros' : '' }}
+          } @else {
+            Cargando…
+          }
+        </span>
+      </h1>
       <div class="actions">
         <app-column-picker [columns]="cols" />
         <button mat-stroked-button (click)="export()" [disabled]="exporting()" data-testid="export">
@@ -249,8 +260,10 @@ export class UserDialog {
       </mat-form-field>
     </form>
 
-    <app-loading-bar [active]="list.loading()" />
-    @if (list.error()) {
+    <app-loading-bar [active]="list.loading() && list.loaded()" />
+    @if (!list.loaded()) {
+      <app-table-skeleton />
+    } @else if (list.error()) {
       <app-error-state [message]="list.error()!"
         ><button mat-stroked-button (click)="list.load()">Reintentar</button></app-error-state
       >

@@ -4,7 +4,7 @@ SPA en **Angular 22** (TypeScript, componentes standalone + signals, Angular Mat
 
 ## Requisitos
 
-Node.js 22 LTS (≥ 22.12) y npm. Versiones de dependencias fijadas en `package.json` (exactas) y `package-lock.json`. Fuentes e iconos son locales (`material-icons`), sin CDN.
+Node.js 22 LTS (≥ 22.12) y npm. Versiones de dependencias fijadas en `package.json` (exactas) y `package-lock.json`. Fuentes e iconos son locales (Geist y Geist Mono vía `@fontsource-variable`, Material Icons Outlined vía `material-icons`), sin CDN.
 
 ## Instalación y ejecución
 
@@ -66,7 +66,7 @@ src/app/
   core/       Auth (token en memoria + refresh por cookie), interceptor (Bearer + renovación única ante 401),
               guards (auth, permiso por módulo/nivel, redirección inicial), directiva *appCan, Api (HTTP + CSV),
               PagedList (estado de listados), servicios de lookups
-  layout/     Shell responsivo (sidenav fijo en escritorio, menú desplegable en móvil)
+  layout/     Shell responsivo (barra lateral agrupada fija en escritorio, cajón + barra translúcida en móvil)
   shared/     Diálogo de confirmación, estados vacío/error/carga, badges, paginador en español
   features/   login · dashboard (Chart.js) · tickets (lista, formulario, detalle + diálogos) · users · roles · clients · errors
 ```
@@ -81,6 +81,19 @@ Decisiones: rutas con *lazy loading*; el **access token vive sólo en memoria** 
 - nginx sobrescribe `X-Forwarded-For`, sirve una CSP estricta y no duplica las cabeceras de la API.
 
 ## Interfaz
+
+### Sistema visual
+
+- **Tokens en `src/styles.scss`**: colores con `light-dark()`, un único acento azul, radios fijos (12 px campos, 16 px tarjetas, 20 px diálogos, botones en píldora) y sombras tintadas. Material 3 se ajusta con `mat.theme-overrides` y los `*-overrides` por componente, sin CSS que pise sus clases internas.
+- **Tema claro, oscuro o el del sistema**, desde el menú de usuario (`ThemeService`; se recuerda por navegador). Funciona fijando `color-scheme` en `<html>`. Las gráficas en canvas resuelven los mismos tokens y se redibujan al cambiar de tema.
+- **Tipografía**: Geist con tracking según tamaño y Geist Mono con cifras tabulares para folios y números.
+- **Navegación**: barra lateral agrupada en «Operación» y «Administración», con el bloque de usuario abajo. En móvil, barra superior translúcida (`backdrop-filter`, con alternativa opaca si se pide menos transparencia).
+- **Dashboard en bento**: «Abiertos» destacado, vencidos y resolución promedio, franja con el resto de estatus, gráficas con los colores de estatus/prioridad y rankings con barra proporcional.
+- **Estados**: esqueletos con la forma de la tabla en la primera carga, barra de progreso en recargas, estados vacíos y de error. Cada listado muestra el total en el encabezado.
+- **Movimiento con propósito**: transiciones de vista entre páginas, respuesta al presionar (`scale(0.97)`) y entrada escalonada del dashboard. Todo se desactiva con `prefers-reduced-motion`.
+- En móvil los filtros secundarios se pliegan tras «Más filtros», así la lista queda a la vista.
+
+### Funciones
 
 - **Icono propio** (`public/favicon.svg`, con su `favicon.ico`, `apple-touch-icon.png` y `manifest.webmanifest`). También es el logo del login y del menú.
 - **Columnas configurables** en tickets, usuarios, roles y clientes. El botón «Columnas» permite mostrar y ocultar columnas y ordenarlas, arrastrando o con las flechas, y se recuerda por navegador. **Exportar CSV sale con las mismas columnas y en el mismo orden** que la tabla: se envían a la API en `columns=`.
@@ -99,7 +112,7 @@ Los niveles son acumulativos (Leer < Insertar < Editar < Eliminar). Cada usuario
 
 ## Limitaciones conocidas
 
-- Sólo tema claro. Tras recargar, la app hace una llamada de renovación (`/auth/refresh`) que devuelve 401 si no hay sesión (se ve en la consola; es esperado).
+- Tras recargar, la app hace una llamada de renovación (`/auth/refresh`) que devuelve 401 si no hay sesión (se ve en la consola; es esperado).
 - Los filtros de listados no se reflejan en la URL.
 - El presupuesto de bundle inicial admite hasta 750 kB sin aviso (Angular Material + Router).
 - Si se recarga o abandona la pagina mientras el servidor rota la cookie de renovacion, la respuesta puede cancelarse y sera necesario iniciar sesion de nuevo. La prueba de recarga espera a que la navegacion haya terminado de restaurar la sesion. El backend tambien documenta el caso de renovaciones simultaneas entre pestanas.

@@ -57,7 +57,7 @@ export const normalize = (text: string): string =>
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
-      background: var(--mat-sys-surface-container, #fff);
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
     }
     input {

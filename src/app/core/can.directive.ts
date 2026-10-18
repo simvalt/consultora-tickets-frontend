@@ -2,7 +2,7 @@ import { Directive, TemplateRef, ViewContainerRef, effect, inject, input } from 
 import { AuthService } from './auth.service';
 import { ModuleKey } from './models';
 
-/** `*appCan="['tickets', 3]"` — renderiza el contenido sólo si el usuario tiene ese nivel (o más). */
+/** `*appCan="['tickets', 3]"`: renderiza el contenido sólo si el usuario tiene ese nivel (o más). */
 @Directive({ selector: '[appCan]' })
 export class CanDirective {
   private readonly auth = inject(AuthService);

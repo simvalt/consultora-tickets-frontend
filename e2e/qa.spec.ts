@@ -200,13 +200,13 @@ test.describe('tickets', () => {
     const table = page.getByTestId('ticket-table');
     await expect(table).toBeVisible();
     const range = page.locator('.mat-mdc-paginator-range-label');
-    await expect(range).toContainText('1–20 de');
+    await expect(range).toContainText('1-20 de');
     await page.getByRole('button', { name: 'Página siguiente' }).click();
-    await expect(range).toContainText('21–40 de');
+    await expect(range).toContainText('21-40 de');
 
     await page.getByRole('button', { name: 'Folio' }).click(); // orden ascendente por folio
     await expect(table.locator('tbody tr').first()).toContainText('TCK-000001');
-    await expect(range).toContainText('1–20 de'); // cambiar el orden vuelve a la primera página
+    await expect(range).toContainText('1-20 de'); // cambiar el orden vuelve a la primera página
 
     await page.getByText('Sólo vencidos').click();
     await expect(table.locator('tbody tr').first().locator('.overdue')).toBeVisible();
@@ -368,8 +368,13 @@ test.describe('móvil', () => {
   test('menú plegable, tabla con desplazamiento y detalle en una columna', async ({ page }) => {
     await login(page, ADMIN);
     await page.getByRole('button', { name: 'Abrir menú' }).click();
-    await page.getByRole('link', { name: 'Tickets' }).click();
+    await page.getByRole('link', { name: 'Tickets', exact: true }).click();
     await expect(page.getByTestId('ticket-table')).toBeVisible();
+    // filtros secundarios plegados hasta que se piden
+    await expect(page.getByTestId('filter-client')).toBeHidden();
+    await page.getByRole('button', { name: 'Más filtros' }).click();
+    await expect(page.getByTestId('filter-client')).toBeVisible();
+    await page.getByRole('button', { name: 'Menos filtros' }).click();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1); // sin desplazamiento horizontal de la página completa
     await page.getByTestId('ticket-table').locator('a.link').first().click();
