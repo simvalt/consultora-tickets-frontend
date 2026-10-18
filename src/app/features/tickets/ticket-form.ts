@@ -6,7 +6,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatDialog } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
+import { Observable, of } from 'rxjs';
 import { DATEPICKER, DATEPICKER_PROVIDERS } from '../../shared/datepicker';
 import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth.service';
@@ -15,7 +17,9 @@ import { Lookups } from '../../core/lookups.service';
 import { LookupItem, Meta, PRIORITIES, PRIORITY_LABELS, TicketDetail } from '../../core/models';
 import { Notify } from '../../core/notify.service';
 import { SELECT_SEARCH } from '../../shared/select-search';
+import { confirm } from '../../shared/confirm-dialog';
 import { ErrorState, LoadingBar } from '../../shared/states';
+import { TICKET_NOT_FOUND, isValidId, minTrimmedLength } from '../../core/validators';
 
 @Component({
   selector: 'app-ticket-form',
@@ -34,6 +38,7 @@ import { ErrorState, LoadingBar } from '../../shared/states';
     LoadingBar,
   ],
   providers: [DATEPICKER_PROVIDERS],
+  host: { '(window:beforeunload)': 'warnOnUnload($event)' },
   template: `
     <div class="page-header">
       <h1>{{ id() ? 'Editar ticket' : 'Nuevo ticket' }}</h1>
@@ -122,6 +127,8 @@ import { ErrorState, LoadingBar } from '../../shared/states';
               }
               @if (form.hasError('timeWithoutDate') && form.controls.due_time.touched) {
                 <mat-hint class="hint-error" role="alert">Indica también la fecha</mat-hint>
+              } @else if (form.hasError('duePast') && (form.controls.due_date.touched || submitted())) {
+                <mat-hint class="hint-error" role="alert">El vencimiento ya pasó: elige una fecha futura</mat-hint>
               } @else {
                 <mat-hint>Sin hora: vence a las 23:59</mat-hint>
               }
@@ -210,6 +217,7 @@ export class TicketForm implements OnInit {
   private readonly notify = inject(Notify);
   private readonly lookups = inject(Lookups);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
   readonly canAssign = () => this.auth.can('tickets', 3);
 
   readonly priorityOptions = PRIORITIES.map((p) => ({ id: p, name: PRIORITY_LABELS[p] }));
@@ -220,10 +228,14 @@ export class TicketForm implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly loadError = signal<string | null>(null);
+  readonly submitted = signal(false);
+  /** Vencimiento guardado (ISO): conservarlo aunque ya haya pasado no es un error, cambiarlo a una fecha pasada sí. */
+  private originalDue: string | null = null;
+  private saved = false;
 
   readonly form = this.fb.group(
     {
-      title: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(3), Validators.maxLength(200)]),
+      title: this.fb.nonNullable.control('', [minTrimmedLength(3), Validators.maxLength(200)]),
       description: this.fb.nonNullable.control(''),
       client_id: this.fb.control<number | null>(null, [Validators.required]),
       category_id: this.fb.control<number | null>(null, [Validators.required]),
@@ -234,7 +246,16 @@ export class TicketForm implements OnInit {
       due_time: this.fb.control<Date | null>(null),
       assignee_id: this.fb.control<number | null>(null),
     },
-    { validators: (g) => (g.value.due_time && !g.value.due_date ? { timeWithoutDate: true } : null) },
+    {
+      validators: [
+        (g) => (g.value.due_time && !g.value.due_date ? { timeWithoutDate: true } : null),
+        (g) => {
+          const due = combineDateTime(g.value.due_date, g.value.due_time);
+          if (!due || toIso(due) === this.originalDue) return null;
+          return due.getTime() < Date.now() ? { duePast: true } : null;
+        },
+      ],
+    },
   );
 
   constructor() {
@@ -246,6 +267,10 @@ export class TicketForm implements OnInit {
   ngOnInit(): void {
     const id = this.id();
     if (!id) return;
+    if (!isValidId(id)) {
+      this.loadError.set(TICKET_NOT_FOUND);
+      return;
+    }
     this.loading.set(true);
     this.api.get<TicketDetail>(`/tickets/${id}`).subscribe({
       next: (t) => {
@@ -258,6 +283,10 @@ export class TicketForm implements OnInit {
           due_date: fromIso(t.due_at),
           due_time: fromIso(t.due_at),
         });
+        const v = this.form.getRawValue();
+        this.originalDue = toIso(combineDateTime(v.due_date, v.due_time));
+        this.form.updateValueAndValidity();
+        this.form.markAsPristine();
         // El cliente actual puede estar inactivo: se conserva visible en la lista.
         if (!this.clients().some((c) => c.id === t.client_id)) {
           this.clients.update((l) => [...l, { id: t.client_id, name: t.client_name }]);
@@ -272,6 +301,8 @@ export class TicketForm implements OnInit {
   }
 
   save(): void {
+    if (this.saving()) return; // doble clic: ya hay un envío en curso
+    this.submitted.set(true);
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -294,6 +325,7 @@ export class TicketForm implements OnInit {
       : this.api.post<TicketDetail>('/tickets', body);
     req.subscribe({
       next: (t) => {
+        this.saved = true;
         this.notify.success(id ? 'Ticket actualizado' : `Ticket ${t.folio} creado`);
         void this.router.navigate(['/tickets', t.id]);
       },
@@ -301,6 +333,23 @@ export class TicketForm implements OnInit {
         this.saving.set(false);
         this.error.set(errorMessage(e));
       },
+    });
+  }
+
+  /** Recargar o cerrar la pestaña con cambios: el navegador muestra su propio aviso. */
+  warnOnUnload(e: BeforeUnloadEvent): void {
+    if (!this.saved && this.form.dirty) e.preventDefault();
+  }
+
+  /** Guardia de salida: si hay cambios sin guardar, se pregunta antes de perderlos. */
+  canLeave(): Observable<boolean> {
+    if (this.saved || !this.form.dirty) return of(true);
+    return confirm(this.dialog, {
+      title: 'Descartar cambios',
+      message: 'Tienes cambios sin guardar en este ticket. Si sales, se perderán.',
+      confirmLabel: 'Descartar',
+      cancelLabel: 'Seguir editando',
+      danger: true,
     });
   }
 }

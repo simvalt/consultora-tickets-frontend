@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,6 +23,7 @@ import { PermissionsEditor } from '../../shared/permissions-editor';
 import { ColumnPicker, TableColumns } from '../../shared/column-picker';
 import { SELECT_SEARCH } from '../../shared/select-search';
 import { EmptyState, ErrorState, LoadingBar, TableSkeleton } from '../../shared/states';
+import { notBlank } from '../../core/validators';
 
 /** Claves = columnas de exportación del backend. */
 const ROLE_COLUMNS = [
@@ -107,16 +108,19 @@ export class RoleDialog {
   private readonly auth = inject(AuthService);
 
   readonly saving = signal(false);
+  private readonly editor = viewChild(PermissionsEditor);
   readonly error = signal<string | null>(null);
   readonly perms = signal<PermMap>(
     this.data?.permissions ?? { tickets: 0, users: 0, roles: 0, clients: 0, dashboard: 0 },
   );
   readonly form = this.fb.nonNullable.group({
-    name: [this.data?.name ?? '', [Validators.required, Validators.maxLength(80)]],
+    name: [this.data?.name ?? '', [notBlank, Validators.maxLength(80)]],
     description: [this.data?.description ?? ''],
   });
 
   save(): void {
+    if (this.saving()) return; // doble clic: ya hay un envío en curso
+    if (this.editor()?.invalid()) return; // el error del JSON ya está a la vista
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -182,7 +186,7 @@ export class RoleDialog {
     <form class="filters" [formGroup]="filters">
       <mat-form-field appearance="outline" class="grow">
         <mat-label>Buscar</mat-label>
-        <input matInput formControlName="q" placeholder="Nombre o descripción" />
+        <input matInput formControlName="q" maxlength="100" placeholder="Nombre o descripción" />
         <mat-icon matSuffix>search</mat-icon>
       </mat-form-field>
       <mat-form-field appearance="outline">

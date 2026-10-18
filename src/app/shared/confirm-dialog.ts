@@ -7,6 +7,7 @@ export interface ConfirmData {
   title: string;
   message: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   danger?: boolean;
 }
 
@@ -17,7 +18,7 @@ export interface ConfirmData {
     <h2 mat-dialog-title>{{ data.title }}</h2>
     <mat-dialog-content>{{ data.message }}</mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button [mat-dialog-close]="false">Cancelar</button>
+      <button mat-button [mat-dialog-close]="false">{{ data.cancelLabel ?? 'Cancelar' }}</button>
       <button mat-flat-button [class.danger]="data.danger" [mat-dialog-close]="true" cdkFocusInitial>
         {{ data.confirmLabel ?? 'Confirmar' }}
       </button>

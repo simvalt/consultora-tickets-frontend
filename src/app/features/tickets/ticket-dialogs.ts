@@ -149,6 +149,7 @@ export class StatusDialog {
   }
 
   save(): void {
+    if (this.saving()) return; // doble clic: ya hay un envío en curso
     const v = this.form.getRawValue();
     if (!v.status) return;
     this.form.markAllAsTouched();
@@ -218,6 +219,7 @@ export class AssignDialog {
   }
 
   save(): void {
+    if (this.saving()) return; // doble clic: ya hay un envío en curso
     this.saving.set(true);
     this.error.set(null);
     this.api

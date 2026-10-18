@@ -237,6 +237,7 @@ export class Login {
   readonly expired = signal(this.route.snapshot.queryParamMap.has('expired'));
 
   submit(): void {
+    if (this.loading()) return; // doble clic: ya hay un envío en curso
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;

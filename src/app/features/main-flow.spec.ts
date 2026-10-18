@@ -242,14 +242,20 @@ describe('flujo principal', () => {
     dialog.form.controls.reason.setValue('Esperando al cliente');
     dialog.save();
     http.expectOne('/api/tickets/7/status').flush(ticket({ status: 'pendiente', assignee_id: 2 }));
-
-    dialog.form.controls.status.setValue('cerrado');
-    expect(dialog.needsResolution()).toBe(true);
-    dialog.form.controls.resolution.setValue('   ');
-    dialog.save();
+    dialog.save(); // un segundo clic mientras se cierra el diálogo no vuelve a enviar
     http.expectNone('/api/tickets/7/status');
-    dialog.form.controls.resolution.setValue('Se reinició el servicio');
-    dialog.save();
+
+    // el diálogo se cierra tras guardar: el siguiente cambio abre uno nuevo
+    const { dialog: next } = statusDialog(
+      ticket({ status: 'pendiente', assignee_id: 2, allowed_transitions: ['en_proceso', 'cerrado', 'cancelado'] }),
+    );
+    next.form.controls.status.setValue('cerrado');
+    expect(next.needsResolution()).toBe(true);
+    next.form.controls.resolution.setValue('   ');
+    next.save();
+    http.expectNone('/api/tickets/7/status');
+    next.form.controls.resolution.setValue('Se reinició el servicio');
+    next.save();
     const req = http.expectOne('/api/tickets/7/status');
     expect(req.request.body).toEqual({ status: 'cerrado', resolution: 'Se reinició el servicio' });
     req.flush(ticket({ status: 'cerrado', assignee_id: 2, allowed_transitions: ['en_proceso'] }));

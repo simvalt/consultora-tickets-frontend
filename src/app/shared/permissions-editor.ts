@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, model, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, model, signal, untracked } from '@angular/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { AuthService } from '../core/auth.service';
 import { LEVEL_HINTS, LEVEL_LABELS, MODULES, ModuleKey } from '../core/models';
@@ -118,6 +118,8 @@ export class PermissionsEditor {
   readonly view = signal<'matrix' | 'json'>('matrix');
   readonly jsonText = signal('{}');
   readonly jsonError = signal<string | null>(null);
+  /** JSON a medio escribir o con errores: el diálogo no debe guardar el último valor válido a escondidas. */
+  readonly invalid = computed(() => this.view() === 'json' && this.jsonError() !== null);
   readonly example = computed(() => '{"tickets": "crear", "dashboard": "leer"}');
 
   constructor() {
@@ -125,7 +127,9 @@ export class PermissionsEditor {
     // (si el texto actual ya representa el mismo valor, no se toca).
     effect(() => {
       const v = this.value();
-      const current = parsePermissionsJson(this.jsonText());
+      // untracked: si leyera jsonText como dependencia, cada tecla que deja el JSON incompleto
+      // volvería a ejecutar este efecto y borraría lo que el usuario está escribiendo.
+      const current = parsePermissionsJson(untracked(this.jsonText));
       if (current.ok && permissionsToJson(this.fill(current.value)) === permissionsToJson(v)) return;
       this.jsonText.set(permissionsToJson(v));
       this.jsonError.set(null);

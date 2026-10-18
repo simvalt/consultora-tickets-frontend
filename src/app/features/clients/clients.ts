@@ -22,6 +22,7 @@ import { confirm } from '../../shared/confirm-dialog';
 import { ColumnPicker, TableColumns } from '../../shared/column-picker';
 import { SELECT_SEARCH } from '../../shared/select-search';
 import { EmptyState, ErrorState, LoadingBar, TableSkeleton } from '../../shared/states';
+import { notBlank } from '../../core/validators';
 
 /** Claves = columnas de exportación del backend. */
 const CLIENT_COLUMNS = [
@@ -83,13 +84,14 @@ export class ClientDialog {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly form = this.fb.nonNullable.group({
-    name: [this.data?.name ?? '', [Validators.required, Validators.maxLength(150)]],
+    name: [this.data?.name ?? '', [notBlank, Validators.maxLength(150)]],
     contact_name: [this.data?.contact_name ?? ''],
     email: [this.data?.email ?? '', [Validators.email]],
     phone: [this.data?.phone ?? ''],
   });
 
   save(): void {
+    if (this.saving()) return; // doble clic: ya hay un envío en curso
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -158,7 +160,7 @@ export class ClientDialog {
     <form class="filters" [formGroup]="filters">
       <mat-form-field appearance="outline" class="grow">
         <mat-label>Buscar</mat-label>
-        <input matInput formControlName="q" placeholder="Nombre, contacto o correo" />
+        <input matInput formControlName="q" maxlength="100" placeholder="Nombre, contacto o correo" />
         <mat-icon matSuffix>search</mat-icon>
       </mat-form-field>
       <mat-form-field appearance="outline">

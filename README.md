@@ -25,7 +25,7 @@ npm run build        # compilación de producción en dist/ (presupuesto inicial
 npm run e2e          # Playwright contra el sistema real (frontend + backend + datos demo en marcha)
 ```
 
-E2E (31 pruebas): `e2e/main-flow.spec.ts`, `e2e/qa.spec.ts` y `e2e/ux.spec.ts` (icono, columnas y CSV, fechas, búsqueda en selects) (sesión, redirecciones seguras, tickets, administración, dashboard y móvil). `main-flow.spec.ts` cubre: login incorrecto; **login → crear ticket → asignar → iniciado → en proceso → pendiente (motivo) → cerrado (resolución) → historial y comentario**; usuario de sólo lectura sin acciones de escritura + páginas de acceso denegado/no encontrado; exportación CSV. Usa el Chrome instalado (`E2E_BROWSER_CHANNEL=chrome`, por defecto); con `E2E_BROWSER_CHANNEL=chromium` usa el navegador de `npx playwright install chromium`. `E2E_BASE_URL` (por defecto `http://localhost:4200`) y `E2E_ADMIN_*`/`E2E_READER_*` permiten apuntar a otro entorno.
+E2E (54 pruebas): `e2e/main-flow.spec.ts`, `e2e/qa.spec.ts` (sesión, redirecciones seguras, tickets, administración, dashboard y móvil), `e2e/ux.spec.ts` (icono, columnas y CSV, fechas, búsqueda en selects) y `e2e/clumsy.spec.ts`, el «usuario torpe»: doble clic en cada botón, campos con sólo espacios, fechas imposibles o al revés, HTML y emojis, URLs inventadas, JSON roto, dos pestañas desactualizadas y cierre de sesión en otra pestaña. Esta suite además falla ante cualquier 5xx, error de JavaScript o diálogo nativo. `main-flow.spec.ts` cubre: login incorrecto; **login → crear ticket → asignar → iniciado → en proceso → pendiente (motivo) → cerrado (resolución) → historial y comentario**; usuario de sólo lectura sin acciones de escritura + páginas de acceso denegado/no encontrado; exportación CSV. Usa el Chrome instalado (`E2E_BROWSER_CHANNEL=chrome`, por defecto); con `E2E_BROWSER_CHANNEL=chromium` usa el navegador de `npx playwright install chromium`. `E2E_BASE_URL` (por defecto `http://localhost:4200`) y `E2E_ADMIN_*`/`E2E_READER_*` permiten apuntar a otro entorno.
 
 ## Configuración y variables
 
@@ -78,6 +78,7 @@ Decisiones: rutas con *lazy loading*; el **access token vive sólo en memoria** 
 - El access token sólo vive en memoria y nunca se guarda en `localStorage`. La sesión se restaura con la cookie `HttpOnly`.
 - `returnUrl` sólo acepta rutas internas (`safeReturnUrl`), así que no hay redirecciones abiertas.
 - «Cambiar contraseña» en el menú de usuario exige la actual. El servidor cierra las demás sesiones.
+- Cerrar sesión en una pestaña cierra también las demás de la app (`BroadcastChannel`), sin esperar a que caduque su access token.
 - nginx sobrescribe `X-Forwarded-For`, sirve una CSP estricta y no duplica las cabeceras de la API.
 
 ## Interfaz
@@ -95,6 +96,7 @@ Decisiones: rutas con *lazy loading*; el **access token vive sólo en memoria** 
 
 ### Funciones
 
+- **A prueba de prisas**: los envíos ignoran el doble clic, los campos obligatorios no aceptan sólo espacios, el formulario de ticket pide confirmación antes de descartar cambios y avisa si el vencimiento ya pasó, y los rangos de fechas ilegibles o al revés se señalan en el campo sin consultar.
 - **Icono propio** (`public/favicon.svg`, con su `favicon.ico`, `apple-touch-icon.png` y `manifest.webmanifest`). También es el logo del login y del menú.
 - **Columnas configurables** en tickets, usuarios, roles y clientes. El botón «Columnas» permite mostrar y ocultar columnas y ordenarlas, arrastrando o con las flechas, y se recuerda por navegador. **Exportar CSV sale con las mismas columnas y en el mismo orden** que la tabla: se envían a la API en `columns=`.
 - **Fechas con calendario** (Material Datepicker en español: lunes como primer día, `dd/mm/aaaa`). También se pueden escribir a mano; el adaptador interpreta día/mes y rechaza fechas imposibles.

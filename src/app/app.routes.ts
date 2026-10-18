@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { Observable } from 'rxjs';
 import { Level } from './core/models';
 import { authGuard, guestGuard, homeRedirect, permissionGuard } from './core/guards';
 
@@ -29,12 +30,14 @@ export const routes: Routes = [
       },
       {
         path: 'tickets/new',
+        canDeactivate: [(form: TicketFormLike) => form.canLeave()],
         title: 'Nuevo ticket',
         canActivate: [permissionGuard('tickets', Level.Insert)],
         loadComponent: () => import('./features/tickets/ticket-form').then((m) => m.TicketForm),
       },
       {
         path: 'tickets/:id/edit',
+        canDeactivate: [(form: TicketFormLike) => form.canLeave()],
         title: 'Editar ticket',
         canActivate: [permissionGuard('tickets', Level.Update)],
         loadComponent: () => import('./features/tickets/ticket-form').then((m) => m.TicketForm),
@@ -76,3 +79,8 @@ export const routes: Routes = [
     ],
   },
 ];
+
+/** Lo mínimo del formulario de ticket que necesita la guardia de salida (sin importar el componente perezoso). */
+interface TicketFormLike {
+  canLeave(): Observable<boolean>;
+}

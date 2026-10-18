@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { apiUrl } from './config';
 import { Me, ModuleKey, TokenResponse } from './models';
@@ -17,6 +18,18 @@ export class AuthService {
   readonly user = signal<Me | null>(null);
   readonly isAuthenticated = computed(() => this.user() !== null);
   private inflightRefresh$: Observable<TokenResponse> | null = null;
+  /** Avisa a las demás pestañas de la app cuando se cierra sesión en una de ellas. */
+  private readonly channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('consultora-auth');
+  private readonly router = inject(Router);
+
+  constructor() {
+    // El access token de esta pestaña seguiría valiendo hasta 15 min: se descarta y se vuelve al login.
+    this.channel?.addEventListener('message', (e: MessageEvent) => {
+      if (e.data !== 'logout' || !this.user()) return;
+      this.clearSession();
+      void this.router.navigate(['/login']);
+    });
+  }
 
   token(): string | null {
     return this.tokenSig();
@@ -65,7 +78,10 @@ export class AuthService {
   logout(): Observable<void> {
     return this.http.post<void>(`${this.base}/auth/logout`, {}).pipe(
       catchError(() => of(undefined)),
-      finalize(() => this.clearSession()),
+      finalize(() => {
+        this.clearSession();
+        this.channel?.postMessage('logout');
+      }),
     );
   }
 

@@ -92,6 +92,7 @@ export class ChangePasswordDialog {
   );
 
   save(): void {
+    if (this.saving()) return; // doble clic: ya hay un envío en curso
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     this.saving.set(true);

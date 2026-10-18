@@ -16,6 +16,7 @@ import { PriorityBadge, StatusBadge } from '../../shared/badges';
 import { confirm } from '../../shared/confirm-dialog';
 import { ErrorState, LoadingBar } from '../../shared/states';
 import { AssignDialog, StatusDialog } from './ticket-dialogs';
+import { TICKET_NOT_FOUND, isValidId } from '../../core/validators';
 
 @Component({
   selector: 'app-ticket-detail',
@@ -295,6 +296,10 @@ export class TicketDetailPage implements OnInit {
 
   load(): void {
     const id = this.id();
+    if (!isValidId(id)) {
+      this.loadError.set(TICKET_NOT_FOUND);
+      return;
+    }
     this.loading.set(true);
     forkJoin({
       ticket: this.api.get<TicketDetail>(`/tickets/${id}`),
@@ -367,6 +372,7 @@ export class TicketDetailPage implements OnInit {
   }
 
   addComment(): void {
+    if (this.commenting()) return; // doble clic: ya hay un envío en curso
     if (this.commentForm.invalid) return;
     this.commenting.set(true);
     this.api

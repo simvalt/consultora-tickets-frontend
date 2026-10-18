@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { debounceTime } from 'rxjs';
-import { DATEPICKER, DATEPICKER_PROVIDERS } from '../../shared/datepicker';
+import { DATEPICKER, DATEPICKER_PROVIDERS, rangeProblem } from '../../shared/datepicker';
 import { Api, Params, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth.service';
 import { daysAgo, formatDuration, startOfMonth, startOfYear, toIsoDate } from '../../core/datetime';
@@ -63,6 +63,9 @@ import { ChartComponent } from './chart';
         <mat-datepicker-toggle matIconSuffix [for]="periodPicker" data-testid="period-picker" />
         <mat-date-range-picker #periodPicker />
         <mat-hint>dd/mm/aaaa · vacío = todo</mat-hint>
+        @if (rangeError(); as msg) {
+          <mat-error>{{ msg }}</mat-error>
+        }
       </mat-form-field>
       <mat-button-toggle-group
         class="presets"
@@ -560,9 +563,16 @@ export class DashboardPage {
     return this.presets.find((p) => key(...p.range()) === key(date_from, date_to))?.id ?? null;
   }
 
+  /** Fecha escrita que no se entiende o rango al revés: no se consulta hasta que lo corrija. */
+  readonly rangeError = computed(() => {
+    this.filterTick();
+    return rangeProblem(this.filters.controls.date_from, this.filters.controls.date_to);
+  });
+
   /** Texto del periodo bajo el título. */
   readonly periodLabel = computed(() => {
     this.filterTick();
+    if (this.rangeError()) return 'Revisa el periodo';
     const { date_from, date_to } = this.filters.getRawValue();
     const f = (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
     if (!date_from && !date_to) return 'Todo el histórico';
@@ -598,6 +608,7 @@ export class DashboardPage {
   }
 
   load(): void {
+    if (rangeProblem(this.filters.controls.date_from, this.filters.controls.date_to)) return;
     this.loading.set(true);
     this.error.set(null);
     this.api.get<Dashboard>('/dashboard', this.params()).subscribe({
@@ -613,6 +624,11 @@ export class DashboardPage {
   }
 
   export(): void {
+    const problem = rangeProblem(this.filters.controls.date_from, this.filters.controls.date_to);
+    if (problem) {
+      this.notify.error(problem);
+      return;
+    }
     this.exporting.set(true);
     this.api.downloadCsv('/dashboard/export', this.params(), 'dashboard').subscribe({
       next: () => this.exporting.set(false),

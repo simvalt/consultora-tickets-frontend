@@ -13,7 +13,7 @@ import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { Router, RouterLink } from '@angular/router';
 import { debounceTime } from 'rxjs';
-import { DATEPICKER, DATEPICKER_PROVIDERS } from '../../shared/datepicker';
+import { DATEPICKER, DATEPICKER_PROVIDERS, rangeProblem } from '../../shared/datepicker';
 import { Api, Params, errorMessage } from '../../core/api';
 import { CanDirective } from '../../core/can.directive';
 import { toIsoDate } from '../../core/datetime';
@@ -108,7 +108,7 @@ const TICKET_COLUMNS = [
     <form class="filters" [formGroup]="filters">
       <mat-form-field appearance="outline" class="grow">
         <mat-label>Buscar por folio, título o descripción</mat-label>
-        <input matInput formControlName="q" data-testid="search" />
+        <input matInput formControlName="q" maxlength="100" data-testid="search" />
         <mat-icon matSuffix>search</mat-icon>
       </mat-form-field>
       <mat-form-field appearance="outline">
@@ -191,6 +191,9 @@ const TICKET_COLUMNS = [
         <mat-datepicker-toggle matIconSuffix [for]="createdPicker" data-testid="created-picker" />
         <mat-date-range-picker #createdPicker />
         <mat-hint>dd/mm/aaaa a dd/mm/aaaa</mat-hint>
+        @if (rangeError(); as msg) {
+          <mat-error>{{ msg }}</mat-error>
+        }
       </mat-form-field>
       <mat-checkbox formControlName="overdue">Sólo vencidos</mat-checkbox>
       <button mat-button type="button" (click)="clear()">Limpiar filtros</button>
@@ -343,6 +346,7 @@ export class TicketList implements OnDestroy {
   readonly exporting = signal(false);
   /** En móvil los filtros secundarios van plegados para que la lista quede a la vista. */
   readonly moreFilters = signal(false);
+  readonly rangeError = signal<string | null>(null);
 
   readonly filters = this.fb.group({
     q: this.fb.nonNullable.control(''),
@@ -371,6 +375,9 @@ export class TicketList implements OnDestroy {
   }
 
   private apply(): void {
+    // Fecha ilegible o rango al revés: se avisa en el campo y se conserva el listado anterior.
+    this.rangeError.set(rangeProblem(this.filters.controls.created_from, this.filters.controls.created_to));
+    if (this.rangeError()) return;
     const v = this.filters.getRawValue();
     const params: Params = {
       q: v.q.trim(),
@@ -400,6 +407,10 @@ export class TicketList implements OnDestroy {
   }
 
   export(): void {
+    if (this.rangeError()) {
+      this.notify.error(this.rangeError()!);
+      return;
+    }
     this.exporting.set(true);
     // Mismos filtros y orden que el listado, y las columnas visibles en el orden elegido.
     const params = { ...this.list.queryParams(), columns: this.cols.visible() };

@@ -1,3 +1,4 @@
+import { AbstractControl } from '@angular/forms';
 import { Injectable, Provider } from '@angular/core';
 import {
   MatDatepicker,
@@ -46,3 +47,15 @@ export const DATEPICKER = [
   MatStartDate,
   MatEndDate,
 ] as const;
+
+/**
+ * Problema de un rango de fechas escrito a mano, o null si se puede consultar.
+ * Usa los errores que ya pone el datepicker: texto que no es fecha y fin anterior al inicio.
+ */
+export function rangeProblem(from: AbstractControl, to: AbstractControl): string | null {
+  if (from.hasError('matDatepickerParse') || to.hasError('matDatepickerParse')) return 'Fecha no válida (dd/mm/aaaa)';
+  if (from.hasError('matStartDateInvalid') || to.hasError('matEndDateInvalid')) {
+    return 'La fecha inicial es posterior a la final';
+  }
+  return null;
+}
